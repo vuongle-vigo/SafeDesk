@@ -1,0 +1,13 @@
+## ===== Visual Studio Build =====
+
+.vs/
+x64/
+Debug/
+Release/
+
+
+
+## ===== Web =====
+
+
+

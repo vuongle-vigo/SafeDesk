@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="AppMonitor">
+      <UniqueIdentifier>{3988470f-0886-4ca5-b09f-918fef777bca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{63eeec94-1d6a-4dca-b967-7c785bda97c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Config">
+      <UniqueIdentifier>{63fd2c87-e13d-4b30-b251-10c28bf389a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SQLite3">
+      <UniqueIdentifier>{bb57b31e-d91e-4ae5-99cd-2fd486c0a112}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HttpClient">
+      <UniqueIdentifier>{8a9069a1-ffd4-4c20-b82d-f049f5777582}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ComputerInfo">
+      <UniqueIdentifier>{4303e7c7-21c1-45a4-bd00-cf5ed9ef57a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PowerMonitor">
+      <UniqueIdentifier>{2e549e9b-84af-423b-9d4c-ce4ab766af26}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SafeDeskTray">
+      <UniqueIdentifier>{b55b9073-dee8-4a61-b9cb-668a62be8d85}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ProcessMonitor">
+      <UniqueIdentifier>{51e6b2c0-0fdd-4059-b2a6-ecf946e492e5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AppMonitor.cpp">
+      <Filter>AppMonitor</Filter>
+    </ClCompile>
+    <ClCompile Include="Common.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Config.cpp">
+      <Filter>Config</Filter>
+    </ClCompile>
+    <ClCompile Include="SQLiteDB.cpp">
+      <Filter>SQLite3</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpClient.cpp">
+      <Filter>HttpClient</Filter>
+    </ClCompile>
+    <ClCompile Include="ComputerInfo.cpp">
+      <Filter>ComputerInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="PowerMonitor.cpp">
+      <Filter>PowerMonitor</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessMonitor.cpp">
+      <Filter>ProcessMonitor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Include\sqlite3\sqlite3.c">
+      <Filter>SQLite3</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AppMonitor.h">
+      <Filter>AppMonitor</Filter>
+    </ClInclude>
+    <ClInclude Include="Common.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Config.h">
+      <Filter>Config</Filter>
+    </ClInclude>
+    <ClInclude Include="SQLiteDB.h">
+      <Filter>SQLite3</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpClient.h">
+      <Filter>HttpClient</Filter>
+    </ClInclude>
+    <ClInclude Include="ComputerInfo.h">
+      <Filter>ComputerInfo</Filter>
+    </ClInclude>
+    <ClInclude Include="PowerMonitor.h">
+      <Filter>PowerMonitor</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessMonitor.h">
+      <Filter>ProcessMonitor</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
