@@ -1,18 +1,10 @@
-const express = require('express');
-const cors = require('cors');
+const expressLoader = require('./loaders/express');
+const routesLoader = require('./loaders/routes');
 
-const authRoutes = require('./modules/auth/auth.routes');
+function createApp() {
+  const app = expressLoader();
+  routesLoader(app);
+  return app;
+}
 
-const app = express();
-
-app.use(express.json());
-app.use(cors());
-
-app.use('/api/auth', authRoutes);
-
-
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to SafeDesk API' });
-});
-
-module.exports = app;
+module.exports = createApp;
