@@ -49,3 +49,31 @@ std::string ComputerInfo::GetDesktopName() {
 	}
 	return "";
 }
+
+std::string ComputerInfo::GetWindowsVersion() {
+	typedef LONG(WINAPI* RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
+
+	HMODULE hMod = GetModuleHandleA("ntdll.dll");
+	if (!hMod)
+		return "";
+
+	RtlGetVersionPtr fn = (RtlGetVersionPtr)GetProcAddress(hMod, "RtlGetVersion");
+	if (!fn)
+		return "";
+
+	RTL_OSVERSIONINFOW info = { 0 };
+	info.dwOSVersionInfoSize = sizeof(info);
+
+	if (fn(&info) != 0)
+		return "";
+
+	char buffer[128];
+	snprintf(buffer, sizeof(buffer),
+		"Windows %u.%u (Build %u)",
+		info.dwMajorVersion,
+		info.dwMinorVersion,
+		info.dwBuildNumber
+	);
+
+	return std::string(buffer);
+}

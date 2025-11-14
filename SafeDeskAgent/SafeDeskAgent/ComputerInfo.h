@@ -22,6 +22,7 @@ public:
 	bool SetMachineGUID();
 	std::string GetMachineGUID();
 	std::string GetDesktopName();
+	std::string GetWindowsVersion();
 private:
 	std::string m_szMachineGUID;
 };

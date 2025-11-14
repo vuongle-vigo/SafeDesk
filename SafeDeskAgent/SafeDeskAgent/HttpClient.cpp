@@ -26,6 +26,38 @@ HttpClient& HttpClient::GetInstance() {
 	return instance;
 }
 
+json HttpClient::SendRequestRegister(LPCSTR pszInstallerToken) {
+	Config& cfg = Config::GetInstance();
+	ComputerInfo comInfo = ComputerInfo::GetInstance();
+	Client client(cfg.GetHost(), cfg.GetPort());
+	Headers headers = {
+		{ "x-installer-token", pszInstallerToken }
+	};
+
+	json jsBody;
+	json hardwareInfo;
+	hardwareInfo["guid"] = comInfo.GetMachineGUID();
+	hardwareInfo["os"] = comInfo.GetWindowsVersion();
+	hardwareInfo["hostname"] = comInfo.GetDesktopName();
+	jsBody["hardwareInfo"] = hardwareInfo;
+
+	std::string szBody = jsBody.dump();
+	auto response = client.Post(API_REGISTER, headers, szBody, "application/json");
+	if (response && response->status == 201)
+	{
+		auto res = json::parse(response->body);
+		return res;
+	}
+	else
+	{
+		auto res = json::parse(response->body);
+		std::cout << res["message"];
+		//Log->Error("Request failed with error: %d", -1);
+	}
+
+	return json();
+}
+
 bool HttpClient::SendRequestGetToken(LPCSTR pszUserName, LPCSTR pszPassword)
 {
 	Config& cfg = Config::GetInstance();

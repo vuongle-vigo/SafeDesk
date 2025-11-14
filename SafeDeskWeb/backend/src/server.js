@@ -1,7 +1,8 @@
 const env = require('./config/env');
-const { connection } = require('./config/db');
+const { initDB } = require('./config/db');
 const createApp = require('./app');
 
+initDB();
 const app = createApp();
 
 app.listen(env.PORT, () => {
