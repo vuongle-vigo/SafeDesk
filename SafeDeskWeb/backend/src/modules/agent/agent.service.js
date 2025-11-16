@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const agentModel = require('./agent.model');
 const installerModel = require('../installer/installer.model');
+const applicationModel = require('../application/application.model');
 
 exports.registerAgent = async (installerToken, hardwareInfo) => {
     const tokenRecord = await installerModel.findInstallerToken(installerToken);
@@ -25,4 +26,13 @@ exports.registerAgent = async (installerToken, hardwareInfo) => {
     await agentModel.createAgent(tokenRecord.user_id, agentId, agentToken, tokenRecord.id, hardwareInfo);
     await installerModel.markTokenUsed(tokenRecord.id);
     return { agentId, agentToken };
+}
+
+exports.addApplication = async (agentId, applicationData) => {
+    if (await agentModel.findAgentById(agentId) == null) {
+        throw new Error('Invalid agent ID');
+    }
+
+    const result = await applicationModel.addApplication(agentId, applicationData);
+    return result;  
 }

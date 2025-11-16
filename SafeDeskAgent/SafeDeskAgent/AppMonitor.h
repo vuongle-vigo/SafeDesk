@@ -5,6 +5,17 @@
 #include <string>
 #include <vector>
 
+struct AppInfo {
+    std::wstring m_sAppName;
+    std::wstring m_sVersion;
+    std::wstring m_sPublisher;
+    std::wstring m_sInstallLocation;
+    std::wstring m_sExePath;
+    std::wstring m_sUninstallString;
+    std::wstring m_sQuietUninstallString;
+};
+
+typedef AppInfo* AppInfoPtr;
 
 class RegistryKey {
 public:
@@ -15,30 +26,30 @@ public:
     HKEY get() const { return m_hKey; }
 private:
     HKEY m_hKey;
+	bool bAppChanged = false;
 };
 
 class AppMonitor {
 public:
-    void ListInstalledApplications();
+    AppMonitor();
+    ~AppMonitor();
+    static AppMonitor& GetInstance();
+    void QueryInstalledApplications();
     BOOL UninstallApplication(const std::wstring& wsAppName);
+	bool IsEqualAppInfo(const std::vector<AppInfo> app1, const std::vector<AppInfo> app2);
     void DisplayApplications();
     void AddApplicationsToDb();
     bool ExecuteUninstall(const std::string& quietUninstallString);
+	json GetInstalledAppJson();
     bool IsAppInstalled(const std::wstring& appName);
+	std::vector<AppInfo> GetInstalledApplications() { return m_vAppInfo; }
     void MonitorApp();
+
+	bool m_bNeedPostApp = false;
 private:
-    struct AppInfo {
-        std::wstring m_sAppName;
-        std::wstring m_sVersion;
-        std::wstring m_sPublisher;
-        std::wstring m_sInstallLocation;
-        std::wstring m_sExePath; // L?y t? DisplayIcon
-        std::wstring m_sUninstallString;
-        std::wstring m_sQuietUninstallString;
-    };
-
-    typedef AppInfo* AppInfoPtr;
-
+    
+    AppMonitor(const AppMonitor&) = delete;
+    AppMonitor& operator=(const AppMonitor&) = delete;
     std::vector<AppInfo> m_vAppInfo;
 };
 

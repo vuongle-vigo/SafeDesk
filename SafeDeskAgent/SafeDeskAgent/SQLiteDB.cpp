@@ -696,3 +696,56 @@ json ConfigMonitorDB::query_config() {
     sqlite3_finalize(stmt);
     return result;
 }
+
+
+TokenDB::TokenDB() : db(SQLiteDB::GetInstance()) {}
+
+TokenDB::~TokenDB() {}
+
+TokenDB& TokenDB::GetInstance() {
+    static TokenDB instance;
+    return instance;
+}
+
+bool TokenDB::addToken(const std::string& szAgentToken , const std::string& szAgentId) {
+    const char* sql = "INSERT INTO token (agent_token, agent_id) VALUES (?, ?);";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, szAgentToken.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
+	sqlite3_bind_text(stmt, 2, szAgentId.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+	return success;
+}
+
+std::string TokenDB::getAgentToken() {
+    std::string sql = "SELECT agent_token FROM token;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db.getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        return "";
+    }
+    std::string token = "";
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* agent_token = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        token = agent_token ? agent_token : "";
+    }
+    sqlite3_finalize(stmt);
+    return token;
+}
+
+std::string TokenDB::getAgentId() {
+    std::string sql = "SELECT agent_id FROM token;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db.getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        return "";
+    }
+    std::string agentId = "";
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* agent_id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        agentId = agent_id ? agent_id : "";
+    }
+    sqlite3_finalize(stmt);
+    return agentId;
+}

@@ -1,20 +1,18 @@
-const { query } = require('../../config/db');
+const { query } = require('../config/db');
 
 module.exports = async function agentMiddleware(req, res, next) {
     try {
         const agentToken = req.headers['x-agent-token'];
         const agentId = req.headers['x-agent-id'];
-
         if (!agentToken || !agentId) {
             return res.status(401).json({ error: 'Agent token and ID are required' });
         }
 
-        const { rows } = await query(
+        const rows = await query(
             `SELECT * FROM agents WHERE agent_id = ? AND agent_token = ?`,
             [agentId, agentToken]
         );
-
-        if (rows.length === 0) {
+        if (rows == null) {
             return res.status(401).json({ error: 'Invalid agent token or ID' });
         }
 

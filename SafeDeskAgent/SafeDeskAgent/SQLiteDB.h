@@ -4,8 +4,8 @@
 #include "nlohmann/json.hpp"
 #include "Common.h"
 
-//#define SQLITE_DB_PATH L"C:\\Users\\levuong\\Documents\\GitHub\\SafeDesk\\SafeDeskAgent\\sqlite_db\\safedesk.db"
-#define SQLITE_DB_PATH L"sqlite_db\\safedesk.db"
+#define SQLITE_DB_PATH L"C:\\Users\\ADMIN\\Documents\\GitHub\\SafeDesk\\SafeDeskAgent\\sqlite_db\\safedesk.db"
+//#define SQLITE_DB_PATH L"sqlite_db\\safedesk.db"
 
 using json = nlohmann::json;
 
@@ -19,7 +19,7 @@ public:
 
 private:
     sqlite3* db;
-    std::string dbPath = WstringToString(GetCurrentDir() + L"\\" + SQLITE_DB_PATH);
+    std::string dbPath = WstringToString(/*GetCurrentDir() + L"\\" + */SQLITE_DB_PATH);
 };
 
 class SQLiteStmt {
@@ -97,6 +97,18 @@ public:
     static ConfigMonitorDB& GetInstance();
     bool add(const std::string& time_limit_daily, std::string& config_websites, std::string& config_apps, std::string command, std::string status);
     json query_config();
+private:
+    SQLiteDB& db;
+};
+
+class TokenDB {
+public:
+    TokenDB();
+    ~TokenDB();
+    static TokenDB& GetInstance();
+    bool addToken(const std::string& szAgentToken , const std::string& szAgentId);
+    std::string getAgentToken();
+	std::string getAgentId();
 private:
     SQLiteDB& db;
 };

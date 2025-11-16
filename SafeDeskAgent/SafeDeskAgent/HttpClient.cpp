@@ -14,9 +14,15 @@
 
 HttpClient::HttpClient()
 {
-	LoginDB& loginDB = LoginDB::GetInstance();
-	Config& cfg = Config::GetInstance();
-	m_sToken = loginDB.getToken();
+	TokenDB& tokenDB = TokenDB::GetInstance();
+	std::string token, agentId;
+	token = tokenDB.getAgentToken();
+	agentId = tokenDB.getAgentId();
+	DEBUG_LOG("HttpClient: Agent Token: %s", token.c_str());
+	m_headers = {
+		{"x-agent-token", token},
+		{"x-agent-id", agentId}
+	};
 }
 
 HttpClient::~HttpClient() {}
@@ -43,58 +49,17 @@ json HttpClient::SendRequestRegister(LPCSTR pszInstallerToken) {
 
 	std::string szBody = jsBody.dump();
 	auto response = client.Post(API_REGISTER, headers, szBody, "application/json");
-	if (response && response->status == 201)
+	if (response && response->status == 200)
 	{
 		auto res = json::parse(response->body);
 		return res;
 	}
 	else
 	{
-		auto res = json::parse(response->body);
-		std::cout << res["message"];
+		//auto res = json::parse(response->body);
+		return json();
 		//Log->Error("Request failed with error: %d", -1);
 	}
-
-	return json();
-}
-
-bool HttpClient::SendRequestGetToken(LPCSTR pszUserName, LPCSTR pszPassword)
-{
-	Config& cfg = Config::GetInstance();
-	ComputerInfo comInfo = ComputerInfo::GetInstance();
-
-	Client client(cfg.GetHost(), cfg.GetPort());
-	//client.enable_server_certificate_verification(false);
-	client.set_basic_auth(pszUserName, pszPassword);
-
-	json jsBody;
-	jsBody["deviceId"] = comInfo.GetMachineGUID();
-	jsBody["deviceName"] = comInfo.GetDesktopName();
-	std::cout << "Device ID: " << jsBody["deviceId"] << std::endl;
-	std::cout << "Device Name: " << jsBody["deviceName"] << std::endl;
-	std::string szBody = jsBody.dump();
-
-	auto response = client.Post("/api/auth/deviceLogin", szBody, "application/json");
-
-	if (response && response->status == 200)
-	{
-		auto res = json::parse(response->body);
-
-		if (res.contains("token")) {
-			m_sToken = res["token"];
-			std::cout << m_sToken;
-			LoginDB& loginDB = LoginDB::GetInstance();
-			loginDB.add(pszUserName, pszPassword, m_sToken);
-			return true;
-		}
-	}
-	else
-	{
-		auto res = json::parse(response->body);
-		std::cout << res["message"];
-		//Log->Error("Request failed with error: %d", -1);
-	}
-	return false;
 }
 
 bool HttpClient::SendRequestGetPolling() {
@@ -102,11 +67,7 @@ bool HttpClient::SendRequestGetPolling() {
 
 	Client client(cfg.GetHost(), cfg.GetPort());
 
-	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
-	};
-
-	auto response = client.Get("/api/polling", headers);
+	auto response = client.Get("/api/polling", m_headers);
 
 	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
@@ -122,10 +83,7 @@ bool HttpClient::SendRequestGetPolling() {
 bool HttpClient::PushPowerUsage(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
-	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
-	};
-	auto response = m_client.Post("/api/kid/add-power-usage", headers, data.dump(), "application/json");
+	auto response = m_client.Post("/api/kid/add-power-usage", m_headers, data.dump(), "application/json");
 	if (response && response->status == 201) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
@@ -139,10 +97,7 @@ bool HttpClient::PushPowerUsage(json data) {
 bool HttpClient::PushProcessUsage(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
-	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
-	};
-	auto response = m_client.Post("/api/kid/add-process-usage", headers, data.dump(), "application/json");
+	auto response = m_client.Post("/api/kid/add-process-usage", m_headers, data.dump(), "application/json");
 	if (response && response->status == 201) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
@@ -153,25 +108,18 @@ bool HttpClient::PushProcessUsage(json data) {
 	return true;
 }
 
-bool HttpClient::PushApplication(json data) {
+bool HttpClient::PostApplication(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
-	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
-	};
-	auto response = m_client.Post("/api/kid/add-installed-apps", headers, data.dump(), "application/json");
+	auto response = m_client.Post(API_APPLICATION_POST, m_headers, data.dump(), "application/json");
 	if (response && response->status == 201) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
 	else {
-		std::cerr << "Request failed: " << response->status << std::endl;
+		std::cerr << "Request failed: " << response->body << std::endl;
 		return false;
 	}
 	return true;
-}
-
-std::string HttpClient::GetToken() {
-	return m_sToken;
 }
 
 json HttpClient::SendRequestGetConfig() {
@@ -179,7 +127,7 @@ json HttpClient::SendRequestGetConfig() {
 	json result;
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
+		{ "Authorization", "Bearer "  }
 	};
 	auto response = m_client.Get("/api/kid/get-config", headers);
 	if (response && response->status == 200) {
@@ -202,9 +150,9 @@ bool HttpClient::SendRequestUpdateOnline() {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
+		{ "Authorization", "Bearer "  }
 	};
-	auto response = m_client.Post("/api/kid/update-status", headers, { "" }, "application/json");
+	auto response = m_client.Post("/api/kid/update-status", m_headers, { "" }, "application/json");
 	if (response && response->status == 201) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
@@ -220,9 +168,9 @@ bool HttpClient::SendRequestUninstall() {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	Headers headers = {
-		{ "Authorization", "Bearer " + m_sToken }
+		{ "Authorization", "Bearer "  }
 	};
-	auto response = m_client.Post("/api/kid/uninstall", headers, { "" }, "application/json");
+	auto response = m_client.Post("/api/kid/uninstall", m_headers, { "" }, "application/json");
 	if (response && response->status == 201) {
 		std::cout << "Response: " << response->body << std::endl;
 	}

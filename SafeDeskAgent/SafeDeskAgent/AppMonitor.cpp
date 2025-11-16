@@ -5,7 +5,18 @@
 #include "SQLiteDB.h"
 #include "Config.h"
 
-void AppMonitor::ListInstalledApplications() {
+AppMonitor::AppMonitor() {}
+
+AppMonitor::~AppMonitor() {}
+
+AppMonitor& AppMonitor::GetInstance() {
+    static AppMonitor instance;
+    return instance;
+}
+
+void AppMonitor::QueryInstalledApplications() {
+	std::vector<AppInfo> vApp;
+	HttpClient& httpClient = HttpClient::GetInstance();
     HKEY hKeyEnumApp[2] = { HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER };
     const wchar_t* registryPaths[2] = { L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
                                         L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall" };
@@ -28,7 +39,7 @@ void AppMonitor::ListInstalledApplications() {
                     DWORD bufferSize = sizeof(displayName);
 
                     if (RegQueryValueEx(hSubKey, TEXT("DisplayName"), NULL, NULL, (LPBYTE)displayName, &bufferSize) == ERROR_SUCCESS) {
-                        AppMonitor::AppInfo appInfo;
+                        AppInfo appInfo;
                         appInfo.m_sAppName = RemoveQuotesW(std::wstring(displayName));
 
                         // Get DisplayVersion
@@ -77,7 +88,7 @@ void AppMonitor::ListInstalledApplications() {
                             appInfo.m_sQuietUninstallString = ToLowercaseW(cleaned);
                         }
 
-                        this->m_vAppInfo.push_back(appInfo);
+                        vApp.push_back(appInfo);
                     }
 
                     RegCloseKey(hSubKey);
@@ -90,7 +101,17 @@ void AppMonitor::ListInstalledApplications() {
             RegCloseKey(hKey);
         }
     }
+
+    if (!IsEqualAppInfo(vApp, this->m_vAppInfo)) {
+        this->m_vAppInfo = vApp;
+		m_bNeedPostApp = true;
+    }
 }
+
+bool AppMonitor::IsEqualAppInfo(const std::vector<AppInfo> app1, const std::vector<AppInfo> app2) {
+	return (app1.size() == app2.size());
+}
+
 
 BOOL AppMonitor::UninstallApplication(const std::wstring& wsAppName) {
     HKEY hKeyEnumApp[2] = { HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER };
@@ -153,7 +174,7 @@ BOOL AppMonitor::UninstallApplication(const std::wstring& wsAppName) {
 }
 
 void AppMonitor::DisplayApplications() {
-    for (AppMonitor::AppInfo appInfo : this->m_vAppInfo) {
+    for (AppInfo appInfo : this->m_vAppInfo) {
         std::wcout << appInfo.m_sAppName << std::endl;
     }
 }
@@ -224,17 +245,22 @@ void AppMonitor::MonitorApp() {
     AppDB& appDB = AppDB::GetInstance();
     ConfigMonitor& configMonitor = ConfigMonitor::GetInstance();
     while (1) {
-        ListInstalledApplications();
-        AddApplicationsToDb();
-        json appJson = appDB.query_apps();
-        httpClient.PushApplication(appJson);
+		DEBUG_LOG("AppMonitor: Checking installed applications...");
+        QueryInstalledApplications();
+        if (m_bNeedPostApp) {
+            json appJson = GetInstalledAppJson();
+            if (httpClient.PostApplication(appJson)) {
+				m_bNeedPostApp = false;
+            }
+        }
+
         ConfigMonitor::AppConfig configApps = configMonitor.GetConfig().config_apps;
         for (const auto& app : configApps.uninstall) {
             std::cout << "Checking if app is installed: " << app.name << std::endl;
             //check if app.name in json app
             bool found = false;
-            for (const auto& installedApp : appJson) {
-                if (installedApp["app_name"] == app.name) {
+            for (const auto& installedApp : m_vAppInfo) {
+                if (WstringToString(installedApp.m_sAppName) == app.name) {
                     found = true;
                     break;
                 }
@@ -257,4 +283,21 @@ void AppMonitor::MonitorApp() {
 
         std::this_thread::sleep_for(std::chrono::minutes(1)); // Sleep for 1 minute before next iteration
     }
+}
+
+json AppMonitor::GetInstalledAppJson() {
+	json result = json::array();
+    for (const auto& app : m_vAppInfo) {
+        json appJson;
+        appJson["app_name"] = WstringToString(app.m_sAppName);
+        appJson["version"] = WstringToString(app.m_sVersion);
+        appJson["publisher"] = WstringToString(app.m_sPublisher);
+        appJson["install_location"] = WstringToString(app.m_sInstallLocation);
+        appJson["exe_path"] = WstringToString(app.m_sExePath);
+        appJson["uninstall_string"] = WstringToString(app.m_sUninstallString);
+        appJson["quiet_uninstall_string"] = WstringToString(app.m_sQuietUninstallString);
+        result.push_back(appJson);
+	}
+
+	return result;
 }

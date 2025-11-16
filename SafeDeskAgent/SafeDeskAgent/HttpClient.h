@@ -8,7 +8,7 @@ using json = nlohmann::json;
 using namespace httplib;
 
 #define API_REGISTER				"/api/agent/register"
-
+#define API_APPLICATION_POST		"/api/agent/applications"
 
 class HttpClient {
 public:
@@ -22,10 +22,9 @@ public:
 	bool SendRequestUninstall();
 	bool PushPowerUsage(json data);
 	bool PushProcessUsage(json data);
-	bool PushApplication(json data);
+	bool PostApplication(json data);
 	bool SendRequestUpdateOnline();
-	std::string GetToken();
 
 private:
-	std::string m_sToken;
+	Headers m_headers;
 };
