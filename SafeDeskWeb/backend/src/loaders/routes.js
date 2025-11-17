@@ -1,7 +1,6 @@
 const authRoutes = require('../modules/auth/auth.routes');
 const agentRoutes = require('../modules/agent/agent.routes');
 const installerRoutes = require('../modules/installer/installer.routes');
-const powerUsageRoutes = require('../modules/power-usage/power-usage.routes');
 
 const authMiddleware = require('../middlewares/auth.middleware');
 const agentMiddleware = require('../middlewares/agent.middleware');

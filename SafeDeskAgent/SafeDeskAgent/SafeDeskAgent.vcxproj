@@ -106,10 +106,12 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)\Include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies);fltlib.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -132,22 +134,26 @@
     <ClCompile Include="..\Include\sqlite3\sqlite3.c" />
     <ClCompile Include="AppMonitor.cpp" />
     <ClCompile Include="Common.cpp" />
+    <ClCompile Include="Communication.cpp" />
     <ClCompile Include="ComputerInfo.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="HttpClient.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PowerMonitor.cpp" />
     <ClCompile Include="ProcessMonitor.cpp" />
+    <ClCompile Include="SafeDeskTray.cpp" />
     <ClCompile Include="SQLiteDB.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMonitor.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="Communication.h" />
     <ClInclude Include="ComputerInfo.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="HttpClient.h" />
     <ClInclude Include="PowerMonitor.h" />
     <ClInclude Include="ProcessMonitor.h" />
+    <ClInclude Include="SafeDeskTray.h" />
     <ClInclude Include="SQLiteDB.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

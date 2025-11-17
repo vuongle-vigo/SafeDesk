@@ -18,7 +18,6 @@ HttpClient::HttpClient()
 	std::string token, agentId;
 	token = tokenDB.getAgentToken();
 	agentId = tokenDB.getAgentId();
-	DEBUG_LOG("HttpClient: Agent Token: %s", token.c_str());
 	m_headers = {
 		{"x-agent-token", token},
 		{"x-agent-id", agentId}
@@ -80,29 +79,29 @@ bool HttpClient::SendRequestGetPolling() {
 	return true;
 }
 
-bool HttpClient::PushPowerUsage(json data) {
+bool HttpClient::PostPowerUsage(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
-	auto response = m_client.Post("/api/kid/add-power-usage", m_headers, data.dump(), "application/json");
-	if (response && response->status == 201) {
+	auto response = m_client.Post(API_POWER_USAGE_POST, m_headers, data.dump(), "application/json");
+	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
 	else {
-		std::cerr << "Request failed: " << response->status << std::endl;
+		std::cerr << "Request failed: " << response->body << std::endl;
 		return false;
 	}
 	return true;
 }
 
-bool HttpClient::PushProcessUsage(json data) {
+bool HttpClient::PostProcessUsage(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
-	auto response = m_client.Post("/api/kid/add-process-usage", m_headers, data.dump(), "application/json");
-	if (response && response->status == 201) {
+	auto response = m_client.Post(API_PROCESS_USAGE_POST, m_headers, data.dump(), "application/json");
+	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
 	else {
-		std::cerr << "Request failed: " << response->status << std::endl;
+		std::cerr << "Request failed: " << response->body << std::endl;
 		return false;
 	}
 	return true;
@@ -112,7 +111,7 @@ bool HttpClient::PostApplication(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	auto response = m_client.Post(API_APPLICATION_POST, m_headers, data.dump(), "application/json");
-	if (response && response->status == 201) {
+	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
 	else {
@@ -153,7 +152,7 @@ bool HttpClient::SendRequestUpdateOnline() {
 		{ "Authorization", "Bearer "  }
 	};
 	auto response = m_client.Post("/api/kid/update-status", m_headers, { "" }, "application/json");
-	if (response && response->status == 201) {
+	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
 	else {
@@ -171,7 +170,7 @@ bool HttpClient::SendRequestUninstall() {
 		{ "Authorization", "Bearer "  }
 	};
 	auto response = m_client.Post("/api/kid/uninstall", m_headers, { "" }, "application/json");
-	if (response && response->status == 201) {
+	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
 	else {

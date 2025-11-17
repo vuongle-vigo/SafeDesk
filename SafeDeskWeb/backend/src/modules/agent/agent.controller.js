@@ -46,3 +46,50 @@ exports.addApplication = async (req, res) => {
         return res.status(400).json({ error: error.message });
     }
 };
+
+exports.addPowerUsage = async (req, res) => {
+    try {
+        const agentId = req.headers['x-agent-id'];
+        const agentToken = req.headers['x-agent-token'];
+        const powerUsageData = req.body;
+        if (!agentId || !agentToken) {
+            return res.status(401).json({ error: 'Agent authentication required' });
+        }
+
+        if (!powerUsageData) {
+            return res.status(400).json({ error: 'Power usage data is required' });
+        }
+
+        const data = await agentService.addPowerUsage(agentId, powerUsageData);
+
+        return res.json({
+            message: 'Power usage data sent successfully',
+            serverResponse: data.serverResponse
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+};
+
+exports.addProcessUsage = async (req, res) => {
+    try {
+        const agentId = req.headers['x-agent-id'];
+        const agentToken = req.headers['x-agent-token'];
+        const processUsageData = req.body;
+        if (!agentId || !agentToken) {
+            return res.status(401).json({ error: 'Agent authentication required' });
+        }
+
+        if (!processUsageData) {
+            return res.status(400).json({ error: 'Process usage data is required' });
+        }
+        
+        const data = await agentService.addProcessUsage(agentId, processUsageData);
+        return res.json({
+            message: 'Process usage data sent successfully',
+            serverResponse: data.serverResponse
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+};

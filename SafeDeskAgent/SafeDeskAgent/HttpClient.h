@@ -9,6 +9,8 @@ using namespace httplib;
 
 #define API_REGISTER				"/api/agent/register"
 #define API_APPLICATION_POST		"/api/agent/applications"
+#define API_POWER_USAGE_POST		"/api/agent/power-usage"
+#define API_PROCESS_USAGE_POST		"/api/agent/process-usage"
 
 class HttpClient {
 public:
@@ -20,8 +22,8 @@ public:
 	bool SendRequestGetPolling();
 	json SendRequestGetConfig();
 	bool SendRequestUninstall();
-	bool PushPowerUsage(json data);
-	bool PushProcessUsage(json data);
+	bool PostPowerUsage(json data);
+	bool PostProcessUsage(json data);
 	bool PostApplication(json data);
 	bool SendRequestUpdateOnline();
 

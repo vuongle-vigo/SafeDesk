@@ -36,6 +36,9 @@
     <Filter Include="ProcessMonitor">
       <UniqueIdentifier>{51e6b2c0-0fdd-4059-b2a6-ecf946e492e5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="DriverCommunication">
+      <UniqueIdentifier>{e8f7a358-0c41-47af-9086-047cbefa6836}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -68,6 +71,12 @@
     <ClCompile Include="..\Include\sqlite3\sqlite3.c">
       <Filter>SQLite3</Filter>
     </ClCompile>
+    <ClCompile Include="SafeDeskTray.cpp">
+      <Filter>SafeDeskTray</Filter>
+    </ClCompile>
+    <ClCompile Include="Communication.cpp">
+      <Filter>DriverCommunication</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMonitor.h">
@@ -93,6 +102,12 @@
     </ClInclude>
     <ClInclude Include="ProcessMonitor.h">
       <Filter>ProcessMonitor</Filter>
+    </ClInclude>
+    <ClInclude Include="SafeDeskTray.h">
+      <Filter>SafeDeskTray</Filter>
+    </ClInclude>
+    <ClInclude Include="Communication.h">
+      <Filter>DriverCommunication</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

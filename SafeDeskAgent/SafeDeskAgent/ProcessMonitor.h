@@ -17,7 +17,7 @@ public:
 	std::wstring GetActiveWindowTitle();
 	void MonitorProcessUsage();
 	bool CheckBlockApp(std::string& sProcessPath);
-	//void ListRunningProcesses();
+	void ListRunningProcesses();
 	BOOL StopProcess(std::string& sProcessName);
 	std::string GetProcessPath(DWORD dwProcessId);
 	bool SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle);
@@ -26,7 +26,7 @@ private:
 		std::string m_sProcessPath;
 		std::wstring m_wsProcessTitle;
 		std::wstring m_wsCurrentWindowTitle;
-		std::string msCurrentProcessPath;
+		std::string m_sCurrentProcessPath;
 		double m_fTimeUsage;
 	} ProcessInfo, * PProcessInfo;
 

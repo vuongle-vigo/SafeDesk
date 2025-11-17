@@ -1,0 +1,119 @@
+; SelfProtect.inf
+;
+
+[Version]
+Signature	=	"$WINDOWS NT$"
+Class       =	"ActivityMonitor"                         ;This is determined by the work this filter driver does
+ClassGuid   =	{b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}    ;This value is determined by the Class
+Provider    = %ProviderString%
+CatalogFile	=	SelfProtect.cat
+DriverVer	=	05/22/2025,1.0.0.0
+PnpLockdown	=	1
+
+[SourceDisksNames]
+1 = %DiskId1%,,,
+
+[SourceDisksFiles]
+SelfProtect.sys=1
+
+[DestinationDirs]
+SelfProtectDownlevel.CopyDriverFiles  = 12            ;%windir%\system32\drivers
+SelfProtectDownlevel.DelDriverFiles   = 12            ;%windir%\system32\drivers
+SelfProtect.DriverFiles               = 13            ;driver store
+
+;;
+;; Default install sections
+;;
+
+[DefaultInstall.NT$ARCH$.10.0...25952]
+OptionDesc          = %ServiceDescription%
+CopyFiles           = SelfProtect.DriverFiles
+
+[DefaultInstall.NT$ARCH$.10.0...25952.Services]
+AddService          = %ServiceName%,,SelfProtect.Service
+
+;
+; Support sections
+;
+
+[SelfProtect.Service]
+DisplayName      = %ServiceName%
+Description      = %ServiceDescription%
+ServiceBinary    = %13%\%DriverName%.sys        ;%windir%\system32\drivers\
+ServiceType      = 2                            ;SERVICE_FILE_SYSTEM_DRIVER
+StartType        = 1                            ;SERVICE_DEMAND_START
+ErrorControl     = 1                            ;SERVICE_ERROR_NORMAL
+LoadOrderGroup   = "FSFilter Activity Monitor"
+AddReg           = SelfProtect.AddRegistry
+
+[SelfProtect.AddRegistry]
+HKR,"Parameters\Instances","DefaultInstance",0x00000000,%DefaultInstance%
+HKR,"Parameters\Instances\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%
+HKR,"Parameters\Instances\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%
+
+[SelfProtect.DriverFiles]
+%DriverName%.sys
+
+;;
+;; Downlevel default install sections
+;;
+
+[DefaultInstall.NT$ARCH$]
+OptionDesc          = %ServiceDescription%
+CopyFiles           = SelfProtectDownlevel.CopyDriverFiles
+
+[DefaultInstall.NT$ARCH$.Services]
+AddService          = %ServiceName%,,SelfProtectDownlevel.Service
+
+;;
+;; Downlevel default uninstall sections
+;;
+
+[DefaultUninstall.NT$ARCH$]
+DelFiles        = SelfProtectDownlevel.DelDriverFiles
+
+[DefaultUninstall.NT$ARCH$.Services]
+LegacyUninstall = 1
+DelService      = %ServiceName%,0x200      ;Ensure service is stopped before deleting
+
+;
+; Downlevel support sections
+;
+[SelfProtectDownlevel.Service]
+DisplayName      = %ServiceName%
+Description      = %ServiceDescription%
+ServiceBinary    = %12%\%DriverName%.sys        ;%windir%\system32\drivers\
+ServiceType      = 2                            ;SERVICE_FILE_SYSTEM_DRIVER
+;StartType        = 3                            ;SERVICE_DEMAND_START
+StartType        = 1                            ;SERVICE_BOOT_START
+ErrorControl     = 1                            ;SERVICE_ERROR_NORMAL
+LoadOrderGroup   = "FSFilter Activity Monitor"
+AddReg           = SelfProtectDownlevel.AddRegistry
+
+[SelfProtectDownlevel.AddRegistry]
+HKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%
+HKR,"Instances\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%
+HKR,"Instances\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%
+
+[SelfProtectDownlevel.CopyDriverFiles]
+%DriverName%.sys
+
+[SelfProtectDownlevel.DelDriverFiles]
+%DriverName%.sys
+
+;;
+;; String Section
+;;
+
+[Strings]
+ProviderString          = "TODO-Set-Provider"
+ServiceDescription      = "A File SelfProtect Monitoring Mini-Filter Driver"
+ServiceName             = "SelfProtect"
+DriverName              = "SelfProtect"
+DiskId1                 = "File SelfProtect Monitoring Device Installation Disk"
+
+;Instances specific information.
+DefaultInstance         = "SelfProtect Instance"
+Instance1.Name          = "SelfProtect Instance"
+Instance1.Altitude      = "370160"
+Instance1.Flags         = 0x0              ; Allow all attachments

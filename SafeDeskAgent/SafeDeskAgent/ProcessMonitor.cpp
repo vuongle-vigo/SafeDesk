@@ -2,7 +2,7 @@
 #include "SQLiteDB.h"
 #include "Config.h"
 #include <thread>
-//#include "SafeKidsTray.h"
+#include "SafeDeskTray.h"
 
 ProcessMonitor::ProcessMonitor() {
     m_processInfo.m_fTimeUsage = 0.0;
@@ -163,7 +163,7 @@ BOOL ProcessMonitor::StopProcess(std::string& sProcessName) {
 }
 
 bool ProcessMonitor::SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle) {
-    m_processInfo.msCurrentProcessPath = sProcessPath;
+    m_processInfo.m_sCurrentProcessPath = sProcessPath;
     m_processInfo.m_wsCurrentWindowTitle = wsProcessTitle;
     return true;
 }
@@ -172,7 +172,7 @@ bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
     ConfigMonitor& configMonitor = ConfigMonitor::GetInstance();
     ConfigMonitor::ConfigData configData = configMonitor.GetConfig();
     ConfigMonitor::AppConfig configApps = configData.config_apps;
-    //SafeKidsTray& safeKidsTray = SafeKidsTray::GetInstance();
+    SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
     std::string path = ToLowercase(RemoveQuotes(sProcessPath));
     for (const auto& app : configApps.blocked) {
         std::string pathCheck = ToLowercase(RemoveQuotes(app.app_id));
@@ -187,7 +187,7 @@ bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
                      MB_OK | MB_ICONWARNING
                  );
                  }).detach();*/
-            //safeKidsTray.SendMessageToTray(StringToWstring(message));
+            safeDeskTray.SendMessageToTray(StringToWstring(message));
             return true; // Blocked app found
         }
     }
@@ -205,7 +205,7 @@ void ProcessMonitor::MonitorProcessUsage() {
             m_processInfo.m_wsProcessTitle = m_processInfo.m_wsCurrentWindowTitle;
             //std::wcout << L"Active Window Title: " << m_processInfo.m_wsProcessTitle << std::endl;
             //m_processInfo.m_sProcessPath = GetActiveWindowProcessPath();
-            m_processInfo.m_sProcessPath = m_processInfo.msCurrentProcessPath;
+            m_processInfo.m_sProcessPath = m_processInfo.m_sCurrentProcessPath;
             m_processInfo.m_fTimeUsage = 0;
             //Insert new database
             processUsageDB.add(

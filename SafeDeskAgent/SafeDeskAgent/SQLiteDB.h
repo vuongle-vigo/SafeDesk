@@ -4,8 +4,8 @@
 #include "nlohmann/json.hpp"
 #include "Common.h"
 
-#define SQLITE_DB_PATH L"C:\\Users\\ADMIN\\Documents\\GitHub\\SafeDesk\\SafeDeskAgent\\sqlite_db\\safedesk.db"
-//#define SQLITE_DB_PATH L"sqlite_db\\safedesk.db"
+//#define SQLITE_DB_PATH L"C:\\Users\\levuong\\Documents\\GitHub\\SafeDesk\\SafeDeskAgent\\sqlite_db\\safedesk.db"
+#define SQLITE_DB_PATH L"sqlite_db\\safedesk.db"
 
 using json = nlohmann::json;
 
@@ -19,7 +19,7 @@ public:
 
 private:
     sqlite3* db;
-    std::string dbPath = WstringToString(/*GetCurrentDir() + L"\\" + */SQLITE_DB_PATH);
+    std::string dbPath = WstringToString(GetCurrentDir() + SQLITE_DB_PATH);
 };
 
 class SQLiteStmt {

@@ -8,6 +8,14 @@ async function createAgent(userId, agentId, agentToken, installerTokenId, hardwa
     return result;
 }
 
+async function findAgentByGuid(guid) {
+    const result = await query(
+        'SELECT * FROM agents WHERE guid = ?',
+        [guid]
+    );
+    return result[0];
+}
+
 async function findAgentByInstallerToken(installerTokenId) {
     const result = await query(
         'SELECT * FROM agents WHERE installer_token_id = ?',
@@ -25,4 +33,4 @@ async function findAgentById(agentId) {
 }
         
 
-module.exports = { createAgent, findAgentByInstallerToken, findAgentById };
+module.exports = { createAgent, findAgentByInstallerToken, findAgentById, findAgentByGuid };

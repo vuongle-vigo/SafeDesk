@@ -186,7 +186,7 @@ bool StartProcessInUserSession(const std::wstring& applicationPath) {
 
 	BOOL success = CreateProcessAsUserW(
 		hToken, applicationPath.c_str(), NULL, NULL, NULL, FALSE,
-		NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi
+		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW, NULL, NULL, &si, &pi
 	);
 
 	CloseHandle(hToken);

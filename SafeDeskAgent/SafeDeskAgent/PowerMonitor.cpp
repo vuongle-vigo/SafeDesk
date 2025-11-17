@@ -33,7 +33,6 @@ void PowerMonitor::MonitorPowerUsage() {
     ConfigMonitor& configMonitor = ConfigMonitor::GetInstance();
     json config = configMonitor.GetTodayConfig();
     PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
-    //SafeKidsTray& safeKidsTray = SafeKidsTray::GetInstance();
 
     while (true) {
         std::cout << "Monitoring power usage..." << std::endl;

@@ -5,7 +5,7 @@
 // SQLiteDB class implementation
 SQLiteDB::SQLiteDB() {
     if (sqlite3_open(dbPath.c_str(), &db) != SQLITE_OK) {
-        std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+		LogToFile("Can't open database: " + dbPath);
         db = nullptr;
     }
 }

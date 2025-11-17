@@ -41,7 +41,6 @@ public:
     void AddApplicationsToDb();
     bool ExecuteUninstall(const std::string& quietUninstallString);
 	json GetInstalledAppJson();
-    bool IsAppInstalled(const std::wstring& appName);
 	std::vector<AppInfo> GetInstalledApplications() { return m_vAppInfo; }
     void MonitorApp();
 
