@@ -1,8 +1,9 @@
 import { Monitor, Laptop, Tablet, Plus, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Device } from '../types';
 import AddDeviceModal from '../components/AddDeviceModal';
+import { mockAPI } from '../utils/api';
 
 interface DevicesProps {
   devices: Device[];
@@ -33,6 +34,99 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hoveredDeviceId, setHoveredDeviceId] = useState<string | null>(null);
 
+  // map agent_id -> status
+  const [agentStatuses, setAgentStatuses] = useState<Record<string, string>>({});
+  // new: agents state
+  const [agents, setAgents] = useState<
+    {
+      agent_id: string;
+      guid: string;
+      os: string;
+      hostname: string;
+      created_at: string;
+      status?: string;
+    }[]
+  >([]);
+
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadAgents = async () => {
+      setAgentsLoading(true);
+      setAgentsError(null);
+      const token =
+        localStorage.getItem('token') ||
+        null;
+
+      const res = await mockAPI.getAllAgents(token);
+
+      if (!mounted) return;
+      setAgentsLoading(false);
+      if (!res.success) {
+        setAgentsError(res.error || 'Không thể tải agents');
+        return;
+      }
+      setAgents((res.agents || []).map((a: any) => ({ ...a })));
+    };
+    loadAgents();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // polling statuses while on this page
+  useEffect(() => {
+    let mounted = true;
+    const token = localStorage.getItem('token') || null;
+    const fetchStatuses = async () => {
+      const res = await mockAPI.getAgentsStatus(token || undefined);
+      if (!mounted) return;
+      if (res.success && res.agentsStatus) {
+        const map: Record<string, string> = {};
+        res.agentsStatus.forEach((s) => {
+          map[s.agent_id] = s.status;
+        });
+        setAgentStatuses(map);
+        // optionally update agents array entries with status
+        setAgents((prev) => prev.map((a) => ({ ...a, status: map[a.agent_id] || a.status || 'offline' })));
+      }
+    };
+
+    // fetch immediately then every 5s
+    fetchStatuses();
+    const id = setInterval(fetchStatuses, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const combinedItems: {
+    id: string;
+    name: string;
+    os?: string;
+    ipAddress?: string;
+    lastActive?: string;
+    status?: 'online' | 'offline' | 'idle' | string;
+    // keep original marker if needed
+    _source?: 'agent' | 'device';
+  }[] = [
+    // only agents (map agents to the same UI shape)
+    ...agents.map((a) => ({
+      id: a.agent_id,
+      name: a.hostname || a.agent_id,
+      os: a.os,
+      ipAddress: '—',
+      lastActive: a.created_at,
+      type: 'desktop',
+      // take live status from agentStatuses if available
+      status: agentStatuses[a.agent_id] || a.status || 'offline',
+      _source: 'agent' as const
+    }))
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -52,8 +146,8 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {devices.map((device, index) => {
-          const Icon = deviceIcons[device.type];
+        {combinedItems.map((device, index) => {
+          const Icon = deviceIcons[device.type as keyof typeof deviceIcons] ?? Monitor;
           const isSelected = selectedDeviceId === device.id;
           const isHovered = hoveredDeviceId === device.id;
 
@@ -79,8 +173,8 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
                   <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${statusColors[device.status]}`}></div>
-                  <span className="text-xs text-gray-600">{statusLabels[device.status]}</span>
+                  <div className={`w-2 h-2 rounded-full ${statusColors[device.status as keyof typeof statusColors] || 'bg-gray-400'}`}></div>
+                  <span className="text-xs text-gray-600">{statusLabels[device.status as keyof typeof statusLabels] || 'Ngoại tuyến'}</span>
                 </div>
               </div>
 
@@ -94,7 +188,7 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
                     <span className="font-mono">{device.ipAddress}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Hoạt động:</span>
+                    <span>Thời gian:</span>
                     <span>{device.lastActive}</span>
                   </div>
                 </div>
@@ -133,13 +227,13 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
 
       <AddDeviceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {devices.length === 0 && (
+      {agents.length === 0 && (
         <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Monitor className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có thiết bị</h3>
-          <p className="text-gray-500 mb-4">Thêm thiết bị đầu tiên để bắt đầu giám sát</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy agent</h3>
+          <p className="text-gray-500 mb-4">Hệ thống chưa nhận được agent từ backend</p>
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

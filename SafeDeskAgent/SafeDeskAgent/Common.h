@@ -1,6 +1,13 @@
 #pragma once
 #include <string>
 #include <iostream>
+#include <vector>
+#include <Windows.h>
+#include <gdiplus.h>
+#include <cstdio>
+
+#pragma comment(lib, "Gdiplus.lib")
+#pragma comment(lib, "Crypt32.lib")
 
 #define LOG_FILE L"SafeDeskAgent.log"
 
@@ -18,6 +25,8 @@
 #else
 #define DEBUG_LOG(fmt, ...)
 #endif
+
+extern ULONG_PTR gdiplusToken;
 
 std::string GetCurrentDate();
 std::string GetCurrentTimeHour();
@@ -37,3 +46,8 @@ void LogToFile(const std::string& message, const std::wstring& filePath = LOG_FI
 bool StartProcessInUserSession(const std::wstring& applicationPath);
 bool DeleteOwnService(const wchar_t* serviceName);
 void UninstallSelfProtectDriver(const std::wstring& serviceName);
+void InitGDIPlus();
+void ShutdownGDIPlus();
+std::string Base64Encode(const BYTE* data, DWORD length);
+std::vector<BYTE> IconToPngBytes(HICON hIcon);
+std::string ExtractIconBase64(const std::wstring& exePath);

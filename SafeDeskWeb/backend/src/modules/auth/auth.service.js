@@ -16,7 +16,6 @@ async function register(email, password) {
 
 async function login(email, password) {
     const user = await authModel.findByEmail(email);
-    console.log('Found user:', user);
     if (!user) {
         throw new Error('Invalid email or password');
     }

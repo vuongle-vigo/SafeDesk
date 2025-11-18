@@ -62,13 +62,16 @@ bool PipeConnection::InitPipe()
 	BOOL success;
 	while (true) {
 		DWORD availableBytes = 0;
+
 		if (!PeekNamedPipe(hPipe, NULL, 0, NULL, &availableBytes, NULL)) {
 			std::wcout << L"PeekNamedPipe failed. Error: " << GetLastError() << std::endl;
-			break;
+			CloseHandle(hPipe);
+			hPipe = INVALID_HANDLE_VALUE;
+			goto __TRY;   
 		}
 
 		if (availableBytes == 0) {
-			Sleep(100); 
+			Sleep(100);
 			continue;
 		}
 
@@ -81,7 +84,9 @@ bool PipeConnection::InitPipe()
 
 		if (!success || bytesRead == 0) {
 			std::wcout << L"ReadFile failed or client disconnected. Error: " << GetLastError() << std::endl;
-			break;
+			CloseHandle(hPipe);
+			hPipe = INVALID_HANDLE_VALUE;
+			goto __TRY;   
 		}
 
 		response[bytesRead / sizeof(wchar_t)] = L'\0';
@@ -89,5 +94,6 @@ bool PipeConnection::InitPipe()
 	}
 
 
-	CloseHandle(hPipe); // Close the pipe handle
+
+	CloseHandle(hPipe);
 }

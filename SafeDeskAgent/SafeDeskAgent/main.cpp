@@ -1,13 +1,13 @@
 #include <iostream>
-#include "SQLiteDB.h"
 #include "HttpClient.h"
+#include "SQLiteDB.h"
 #include "ProcessMonitor.h"
 #include "AppMonitor.h"
 #include "PowerMonitor.h"
-#include "Common.h"
 #include "SafeDeskTray.h"
 #include "Communication.h"
 #include <thread>
+#include "Common.h"
 
 // Global for service variable
 SERVICE_STATUS g_ServiceStatus = { 0 };
@@ -55,6 +55,7 @@ void RunMainLogic() {
     std::thread monitorPower(ThreadMonitorPower);
     std::thread monitorProcess(ThreadMonitorProcess);
 
+    InitGDIPlus();
     InitSelfProtectDriver();   
 
     while (g_ServiceStatus.dwCurrentState == SERVICE_RUNNING) {
@@ -214,8 +215,8 @@ int main(int argc, char* argv[]) {
         }
     }
     else {
-        service::ServiceManager::CreateService();
-		//RunMainLogic();
+        //service::ServiceManager::CreateService();
+		RunMainLogic();
     }
 
 	//LoginDB& sqlite = LoginDB::GetInstance();

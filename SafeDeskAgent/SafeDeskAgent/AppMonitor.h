@@ -10,9 +10,10 @@ struct AppInfo {
     std::wstring m_sVersion;
     std::wstring m_sPublisher;
     std::wstring m_sInstallLocation;
-    std::wstring m_sExePath;
+    std::string m_sIconBase64;
     std::wstring m_sUninstallString;
     std::wstring m_sQuietUninstallString;
+	std::wstring m_sIconPath;
 };
 
 typedef AppInfo* AppInfoPtr;
@@ -46,7 +47,6 @@ public:
 
 	bool m_bNeedPostApp = false;
 private:
-    
     AppMonitor(const AppMonitor&) = delete;
     AppMonitor& operator=(const AppMonitor&) = delete;
     std::vector<AppInfo> m_vAppInfo;

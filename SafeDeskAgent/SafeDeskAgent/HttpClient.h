@@ -7,10 +7,10 @@
 using json = nlohmann::json;
 using namespace httplib;
 
-#define API_REGISTER				"/api/agent/register"
-#define API_APPLICATION_POST		"/api/agent/applications"
-#define API_POWER_USAGE_POST		"/api/agent/power-usage"
-#define API_PROCESS_USAGE_POST		"/api/agent/process-usage"
+#define API_REGISTER				"/api/agents/register"
+#define API_APPLICATION_POST		"/api/agents/applications"
+#define API_POWER_USAGE_POST		"/api/agents/power-usage"
+#define API_PROCESS_USAGE_POST		"/api/agents/process-usage"
 
 class HttpClient {
 public:

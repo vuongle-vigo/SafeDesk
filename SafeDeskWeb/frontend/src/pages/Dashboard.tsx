@@ -6,7 +6,11 @@ import { mockUsageByCategory, mockUsageByHour, mockUsageByDay, mockUsageByWeek, 
 
 type TimeRange = 'hour' | 'day' | 'week' | 'month';
 
-export default function Dashboard() {
+interface DashboardProps {
+  selectedDeviceId?: string | null;
+}
+
+export default function Dashboard({ selectedDeviceId }: DashboardProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('hour');
 
   const getChartData = () => {

@@ -4,10 +4,10 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
-#include <windows.h>
 #include <algorithm>
 #include <ctime>
 #include <fstream>
+#include <windows.h>
 
 std::string GetCurrentDate() {
 	// Get current time
@@ -217,7 +217,7 @@ bool StartProcessInUserSession(const std::wstring& applicationPath) {
 
 	BOOL success = CreateProcessAsUserW(
 		hToken, applicationPath.c_str(), NULL, NULL, NULL, FALSE,
-		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW, NULL, NULL, &si, &pi
+		NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi
 	);
 
 	CloseHandle(hToken);
@@ -289,4 +289,135 @@ void UninstallSelfProtectDriver(const std::wstring& serviceName) {
 	batFile.close();
 
 	ShellExecuteW(NULL, L"open", L"uninstall_filter_driver.bat", NULL, NULL, SW_HIDE);
+}
+
+ULONG_PTR gdiplusToken = 0;
+
+//============================
+//  INIT / SHUTDOWN GDI+
+//============================
+void InitGDIPlus()
+{
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+	Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+}
+
+void ShutdownGDIPlus()
+{
+	Gdiplus::GdiplusShutdown(gdiplusToken);
+}
+
+
+
+//============================
+//  ICON ? PNG bytes (NO FILE)
+//============================
+std::vector<BYTE> IconToPngBytes(HICON hIcon)
+{
+	std::vector<BYTE> pngData;
+
+	if (!hIcon) return pngData;
+
+	HDC hdc = GetDC(NULL);
+
+	ICONINFO iconInfo = {};
+	GetIconInfo(hIcon, &iconInfo);
+
+	BITMAP bm = {};
+	GetObject(iconInfo.hbmColor, sizeof(bm), &bm);
+
+	int width = bm.bmWidth;
+	int height = bm.bmHeight;
+
+	HDC memDC = CreateCompatibleDC(hdc);
+	HBITMAP hBmp = CreateCompatibleBitmap(hdc, width, height);
+	SelectObject(memDC, hBmp);
+
+	// Draw icon to bitmap
+	DrawIconEx(memDC, 0, 0, hIcon, width, height, 0, NULL, DI_NORMAL);
+
+	// Convert hBmp to GDI+ Bitmap
+	Gdiplus::Bitmap bitmap(hBmp, NULL);
+
+	// Create stream memory
+	IStream* pStream = NULL;
+	CreateStreamOnHGlobal(NULL, TRUE, &pStream);
+
+	// Get PNG encoder
+	CLSID pngClsid = {};
+	UINT num = 0, size = 0;
+	Gdiplus::GetImageEncodersSize(&num, &size);
+
+	std::vector<BYTE> codecs(size);
+	Gdiplus::ImageCodecInfo* pCodecs = (Gdiplus::ImageCodecInfo*)codecs.data();
+	Gdiplus::GetImageEncoders(num, size, pCodecs);
+
+	for (UINT i = 0; i < num; i++) {
+		if (wcscmp(pCodecs[i].MimeType, L"image/png") == 0) {
+			pngClsid = pCodecs[i].Clsid;
+			break;
+		}
+	}
+
+	// Save stream as PNG
+	bitmap.Save(pStream, &pngClsid, NULL);
+
+	// Get data from stream
+	HGLOBAL hGlobal = NULL;
+	GetHGlobalFromStream(pStream, &hGlobal);
+
+	SIZE_T pngSize = GlobalSize(hGlobal);
+	pngData.resize(pngSize);
+
+	void* pData = GlobalLock(hGlobal);
+	memcpy(pngData.data(), pData, pngSize);
+	GlobalUnlock(hGlobal);
+
+	pStream->Release();
+	DeleteObject(hBmp);
+	DeleteDC(memDC);
+	ReleaseDC(NULL, hdc);
+
+	return pngData;
+}
+
+//============================
+//  Extract EXE ICON ? Base64
+//============================
+std::string ExtractIconBase64(const std::wstring& exePath)
+{
+	HICON hIcon = NULL;
+
+	ExtractIconExW(exePath.c_str(), 0, &hIcon, NULL, 1);
+	if (!hIcon) {
+		printf("Failed to extract icon.\n");
+		return "";
+	}
+
+	auto pngBytes = IconToPngBytes(hIcon);
+	if (pngBytes.empty()) {
+		printf("Failed to convert to PNG.\n");
+		return "";
+	}
+
+	return Base64Encode(pngBytes.data(), (DWORD)pngBytes.size());
+}
+
+//============================
+//  BASE64 ENCODE
+//============================
+std::string Base64Encode(const BYTE* data, DWORD length)
+{
+	DWORD outLen = 0;
+	CryptBinaryToStringA(data, length,
+		CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+		NULL, &outLen);
+
+	std::string output(outLen, '\0');
+
+	CryptBinaryToStringA(data, length,
+		CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+		&output[0], &outLen);
+
+	return output;
 }

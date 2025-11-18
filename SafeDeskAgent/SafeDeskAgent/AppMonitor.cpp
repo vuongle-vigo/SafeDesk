@@ -31,7 +31,6 @@ void AppMonitor::QueryInstalledApplications() {
             DWORD index = 0;
             TCHAR subKeyName[256];
             DWORD subKeyNameSize = 256;
-
             while (RegEnumKeyEx(hKey, index, subKeyName, &subKeyNameSize, NULL, NULL, NULL, NULL) == ERROR_SUCCESS) {
                 HKEY hSubKey;
                 if (RegOpenKeyEx(hKey, subKeyName, 0, KEY_READ, &hSubKey) == ERROR_SUCCESS) {
@@ -50,9 +49,10 @@ void AppMonitor::QueryInstalledApplications() {
                         }
 
                         // Get Publisher
-                        TCHAR publisher[256];
+                        TCHAR publisher[256] = { 0 };
                         bufferSize = sizeof(publisher);
                         if (RegQueryValueEx(hSubKey, TEXT("Publisher"), NULL, NULL, (LPBYTE)publisher, &bufferSize) == ERROR_SUCCESS) {
+							std::wstring puslisherStr(publisher);
                             appInfo.m_sPublisher = RemoveQuotesW(std::wstring(publisher));
                         }
 
@@ -61,6 +61,11 @@ void AppMonitor::QueryInstalledApplications() {
                         bufferSize = sizeof(installLocation);
                         if (RegQueryValueEx(hSubKey, TEXT("InstallLocation"), NULL, NULL, (LPBYTE)installLocation, &bufferSize) == ERROR_SUCCESS) {
                             std::wstring cleaned = RemoveQuotesW(std::wstring(installLocation));
+                            //Remove last // in cleaned
+							if (!cleaned.empty() && cleaned.back() == L'\\') {
+								cleaned.pop_back();
+							}
+
                             appInfo.m_sInstallLocation = ToLowercaseW(cleaned);
                         }
 
@@ -69,7 +74,15 @@ void AppMonitor::QueryInstalledApplications() {
                         bufferSize = sizeof(exePath);
                         if (RegQueryValueEx(hSubKey, TEXT("DisplayIcon"), NULL, NULL, (LPBYTE)exePath, &bufferSize) == ERROR_SUCCESS) {
                             std::wstring cleaned = RemoveQuotesW(std::wstring(exePath));
-                            appInfo.m_sExePath = ToLowercaseW(cleaned);
+                            if (cleaned != L"") {
+                                // remove ,
+								size_t commaPos = cleaned.find(L',');
+								if (commaPos != std::wstring::npos) {
+									cleaned = cleaned.substr(0, commaPos);
+								}
+								appInfo.m_sIconPath = ToLowercaseW(cleaned);
+                                appInfo.m_sIconBase64 = ExtractIconBase64(cleaned);
+                            }
                         }
 
                         // Get UninstallString
@@ -88,12 +101,24 @@ void AppMonitor::QueryInstalledApplications() {
                             appInfo.m_sQuietUninstallString = ToLowercaseW(cleaned);
                         }
 
+                       /* if (appInfo.m_sPublisher == std::wstring(L"Microsoft Corporation")) {
+                            goto __NEXT;
+                        }*/
+
+						if (appInfo.m_sInstallLocation == std::wstring(L"") && appInfo.m_sIconPath == std::wstring(L"")) {
+							goto __NEXT;
+						}
+
+                        if (appInfo.m_sInstallLocation == std::wstring(L"")) {
+							appInfo.m_sInstallLocation = appInfo.m_sIconPath.substr(0, appInfo.m_sIconPath.find_last_of(L"\\"));
+                        }
+
                         vApp.push_back(appInfo);
                     }
 
                     RegCloseKey(hSubKey);
                 }
-
+            __NEXT:
                 index++;
                 subKeyNameSize = 256;
             }
@@ -184,7 +209,7 @@ void AppMonitor::AddApplicationsToDb() {
     appDB.delete_all();
     for (const auto& app : m_vAppInfo) {
         appDB.add(WstringToString(app.m_sAppName), WstringToString(app.m_sVersion), WstringToString(app.m_sPublisher),
-            RemoveTrailingSplash(WstringToString(app.m_sInstallLocation)), WstringToString(app.m_sExePath),
+            RemoveTrailingSplash(WstringToString(app.m_sInstallLocation)), app.m_sIconBase64,
             WstringToString(app.m_sUninstallString), WstringToString(app.m_sQuietUninstallString));
     }
 }
@@ -293,7 +318,8 @@ json AppMonitor::GetInstalledAppJson() {
         appJson["version"] = WstringToString(app.m_sVersion);
         appJson["publisher"] = WstringToString(app.m_sPublisher);
         appJson["install_location"] = WstringToString(app.m_sInstallLocation);
-        appJson["exe_path"] = WstringToString(app.m_sExePath);
+        appJson["icon_base64"] = app.m_sIconBase64;
+		appJson["icon_path"] = WstringToString(app.m_sIconPath);
         appJson["uninstall_string"] = WstringToString(app.m_sUninstallString);
         appJson["quiet_uninstall_string"] = WstringToString(app.m_sQuietUninstallString);
         result.push_back(appJson);

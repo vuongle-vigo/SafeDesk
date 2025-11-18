@@ -66,7 +66,7 @@ function App() {
       case 'devices':
         return <Devices devices={devices} selectedDeviceId={selectedDeviceId} onSelectDevice={handleSelectDevice} onRemoveDevice={handleRemoveDevice} />;
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard selectedDeviceId={selectedDeviceId} />;
       case 'apps':
         return <Apps selectedDeviceId={selectedDeviceId} />;
       case 'processes':

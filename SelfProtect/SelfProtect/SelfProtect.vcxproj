@@ -105,6 +105,7 @@
     <ClInclude Include="FileProtect.h" />
     <ClInclude Include="Filter.h" />
     <ClInclude Include="ProcessProtect.h" />
+    <ClInclude Include="RegistryProtect.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
@@ -114,6 +115,7 @@
     <ClCompile Include="FileProtect.c" />
     <ClCompile Include="Filter.c" />
     <ClCompile Include="ProcessProtect.c" />
+    <ClCompile Include="RegistryProtect.c" />
     <ClCompile Include="stdafx.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

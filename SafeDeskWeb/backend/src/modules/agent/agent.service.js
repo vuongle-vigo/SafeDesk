@@ -4,9 +4,9 @@ const installerModel = require('../installer/installer.model');
 const applicationModel = require('../application/application.model');
 const powerUsageModel = require('../power-usage/power-usage.model');
 const processUsageModel = require('../process-usage/process-usage.model');
-const { ServerResponse } = require('http');
+const { ServerResponse, get } = require('http');
 
-exports.registerAgent = async (installerToken, hardwareInfo) => {
+async function registerAgent(installerToken, hardwareInfo) {
     const tokenRecord = await installerModel.findInstallerToken(installerToken);
     if (!tokenRecord) {
         throw new Error('Invalid installer token');
@@ -40,28 +40,17 @@ exports.registerAgent = async (installerToken, hardwareInfo) => {
     return { agentId, agentToken };
 }
 
-exports.addApplication = async (agentId, applicationData) => {
-    if (await agentModel.findAgentById(agentId) == null) {
-        throw new Error('Invalid agent ID');
-    }
-
-    const result = await applicationModel.addApplication(agentId, applicationData);
-    return result;  
+async function getAllAgents(userId) {
+    const agents = await agentModel.findAllAgentsByUserId(userId);
+    return agents;
 }
 
-exports.addPowerUsage = async (agentId, powerUsageData) => {
-    if (await agentModel.findAgentById(agentId) == null) {
-        throw new Error('Invalid agent ID');
-    }
-    
-    for (const entry of powerUsageData) {
-        await powerUsageModel.addSinglePowerUsage(agentId, entry.date, entry.hour, entry.usage_minutes);
-    }
-
-    return {ServerResponse: "Success"};
+async function getAgentsStatus(userId) {
+    const agents_status = await agentModel.findAgentsStatusByUserId(userId);
+    return agents_status;
 }
 
-exports.addProcessUsage = async (agentId, processUsageData) => {
+async function addProcessUsage(agentId, processUsageData) {
     if (await agentModel.findAgentById(agentId) == null) {
         throw new Error('Invalid agent ID');
     }
@@ -72,3 +61,5 @@ exports.addProcessUsage = async (agentId, processUsageData) => {
 
     return {ServerResponse: "Success"};
 }
+
+module.exports = { registerAgent, getAllAgents, addProcessUsage, getAgentsStatus };

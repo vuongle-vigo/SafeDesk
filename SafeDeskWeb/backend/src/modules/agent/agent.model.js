@@ -1,4 +1,4 @@
-    const { query } = require('../../config/db');
+const { query } = require('../../config/db');
 
 async function createAgent(userId, agentId, agentToken, installerTokenId, hardwareInfo) {
     const result = await query(
@@ -32,5 +32,20 @@ async function findAgentById(agentId) {
     return result[0];
 }
         
+async function findAllAgentsByUserId(userId) {
+    const result = await query(
+        'SELECT agent_id, guid, os, hostname, created_at FROM agents WHERE user_id = ?',
+        [userId]
+    );
+    return result;
+}
 
-module.exports = { createAgent, findAgentByInstallerToken, findAgentById, findAgentByGuid };
+async function findAgentsStatusByUserId(userId) {
+    const result = await query(
+        `SELECT agent_id, status FROM agents WHERE user_id = ?`,
+        [userId]
+    );
+    return result;
+}
+
+module.exports = { createAgent, findAgentByInstallerToken, findAgentById, findAgentByGuid, findAllAgentsByUserId, findAgentsStatusByUserId };

@@ -1,6 +1,6 @@
 const agentService = require('./agent.service');
 
-exports.register = async (req, res) => {
+async function register(req, res) {
     try {
         const installerToken = req.headers['x-installer-token'];
         const hardwareInfo = req.body.hardwareInfo;
@@ -22,56 +22,35 @@ exports.register = async (req, res) => {
     }
 };
 
-exports.addApplication = async (req, res) => {
+async function getAllAgents(req, res) {
+    const userId = req.user.user_id;
     try {
-        const agentId = req.headers['x-agent-id'];
-        const agentToken = req.headers['x-agent-token'];
-        const applicationData = req.body;
-        if (!agentId || !agentToken) {
-            return res.status(401).json({ error: 'Agent authentication required' });
-        }
-
-        if (!applicationData) {
-            return res.status(400).json({ error: 'Application data is required' });
-        }
-
-        const data = await agentService.addApplication(agentId, applicationData);
-
+        const agents = await agentService.getAllAgents(userId);
         return res.json({
-            message: 'Application data sent successfully',
-            serverResponse: data.serverResponse
+            agents: agents
         });
-
     } catch (error) {
         return res.status(400).json({ error: error.message });
-    }
-};
+    }   
+}
 
-exports.addPowerUsage = async (req, res) => {
+async function getAgentStatus(req, res) {
+    const userId = req.user.user_id;
     try {
-        const agentId = req.headers['x-agent-id'];
-        const agentToken = req.headers['x-agent-token'];
-        const powerUsageData = req.body;
-        if (!agentId || !agentToken) {
-            return res.status(401).json({ error: 'Agent authentication required' });
-        }
-
-        if (!powerUsageData) {
-            return res.status(400).json({ error: 'Power usage data is required' });
-        }
-
-        const data = await agentService.addPowerUsage(agentId, powerUsageData);
-
+        const agents_status = await agentService.getAgentsStatus(userId);
         return res.json({
-            message: 'Power usage data sent successfully',
-            serverResponse: data.serverResponse
+            agentsStatus: agents_status
         });
     } catch (error) {
         return res.status(400).json({ error: error.message });
     }
-};
+}
 
-exports.addProcessUsage = async (req, res) => {
+
+
+
+
+async function addProcessUsage(req, res){
     try {
         const agentId = req.headers['x-agent-id'];
         const agentToken = req.headers['x-agent-token'];
@@ -93,3 +72,5 @@ exports.addProcessUsage = async (req, res) => {
         return res.status(400).json({ error: error.message });
     }
 };
+
+module.exports = { register, getAllAgents, addProcessUsage, getAgentStatus };

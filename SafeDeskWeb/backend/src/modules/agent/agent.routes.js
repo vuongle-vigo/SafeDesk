@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const agentController = require('./agent.controller');
 const agentMiddleware = require('../../middlewares/agent.middleware');
+const authMiddleware = require('../../middlewares/auth.middleware');
 
 router.post('/register', agentController.register);
-router.post('/applications', agentMiddleware, agentController.addApplication);
-router.post('/power-usage', agentMiddleware, agentController.addPowerUsage);
+router.get('/', authMiddleware, agentController.getAllAgents);
+router.get('/status', authMiddleware, agentController.getAgentStatus);
 router.post('/process-usage', agentMiddleware, agentController.addProcessUsage);
 
 module.exports = router;
