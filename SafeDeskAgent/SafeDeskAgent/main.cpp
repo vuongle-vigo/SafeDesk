@@ -21,6 +21,31 @@ void ThreadMonitorPower();
 void ThreadMonitorProcess();
 void ThreadSafeDeskTray();
 
+static void SetRecoveryOptions(SC_HANDLE hService) {
+    SC_ACTION actions[3];
+    actions[0].Type = SC_ACTION_RESTART;  // Restart on first failure
+    actions[0].Delay = 5000;              // 5 seconds
+    actions[1].Type = SC_ACTION_RESTART;  // Restart on second failure
+    actions[1].Delay = 5000;
+    actions[2].Type = SC_ACTION_RESTART;  // Restart on all failures
+    actions[2].Delay = 5000;
+
+    SERVICE_FAILURE_ACTIONSA failureActions = {};
+    failureActions.dwResetPeriod = 0;       // Reset failure count (0 = never reset)
+    failureActions.lpCommand = NULL;
+    failureActions.lpRebootMsg = NULL;
+    failureActions.cActions = 3;
+    failureActions.lpsaActions = actions;
+
+    if (!ChangeServiceConfig2A(hService, SERVICE_CONFIG_FAILURE_ACTIONS, &failureActions)) {
+        LogToFile("Failed to set service recovery options: " + std::to_string(GetLastError()));
+    }
+    else {
+        LogToFile("Service recovery configured successfully.");
+    }
+}
+
+
 void RunMainLogic() {
     // Main logic of the application goes here
     HttpClient& httpClient = HttpClient::GetInstance();
@@ -64,14 +89,16 @@ namespace service {
         case SERVICE_CONTROL_SHUTDOWN:
             g_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
             SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
+            //g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
+            //SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
             g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
-            SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
             LogToFile("Service stopped.");
             break;
         default:
-            SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
             break;
         }
+
+        SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
     }
 
     // Service main function
@@ -90,7 +117,7 @@ namespace service {
         g_ServiceStatus.dwWin32ExitCode = 0;
         g_ServiceStatus.dwServiceSpecificExitCode = 0;
         g_ServiceStatus.dwCheckPoint = 0;
-        g_ServiceStatus.dwWaitHint = 0;
+        g_ServiceStatus.dwWaitHint = 5000;
 
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
 
@@ -158,6 +185,8 @@ namespace service {
                 return false;
             }
 
+            SetRecoveryOptions(schService);
+
             // Set service description
             SERVICE_DESCRIPTIONA description = { (LPSTR)"Safedesk monitoring service for tracking system usage." };
             ChangeServiceConfig2A(schService, SERVICE_CONFIG_DESCRIPTION, &description);
@@ -185,8 +214,8 @@ int main(int argc, char* argv[]) {
         }
     }
     else {
-        //service::ServiceManager::CreateService();
-		RunMainLogic();
+        service::ServiceManager::CreateService();
+		//RunMainLogic();
     }
 
 	//LoginDB& sqlite = LoginDB::GetInstance();

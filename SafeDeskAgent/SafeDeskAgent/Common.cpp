@@ -169,6 +169,37 @@ void LogToFile(const std::string& message, const std::wstring& filePath) {
 	}
 }
 
+static HANDLE gJob = NULL;
+
+void CreateKillOnCloseJob()
+{
+	gJob = CreateJobObjectW(NULL, NULL);
+	if (gJob == NULL) {
+		LogToFile("CreateJobObject failed: " + std::to_string(GetLastError()));
+		return;
+	}
+
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = { 0 };
+	info.BasicLimitInformation.LimitFlags =
+		JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE |
+		JOB_OBJECT_LIMIT_BREAKAWAY_OK;   // IMPORTANT
+
+	if (!SetInformationJobObject(
+		gJob,
+		JobObjectExtendedLimitInformation,
+		&info,
+		sizeof(info)))
+	{
+		LogToFile("SetInformationJobObject failed: " + std::to_string(GetLastError()));
+	}
+
+	if (!AssignProcessToJobObject(gJob, GetCurrentProcess()))
+	{
+		LogToFile("Assign self to job failed: " + std::to_string(GetLastError()));
+	}
+}
+
+
 #include <wtsapi32.h>
 #pragma comment(lib, "Wtsapi32.lib")
 bool StartProcessInUserSession(const std::wstring& applicationPath) {
@@ -190,10 +221,22 @@ bool StartProcessInUserSession(const std::wstring& applicationPath) {
 	);
 
 	CloseHandle(hToken);
-	if (success) {
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
+	if (!success) {
+		return false;
 	}
+
+	if (!AssignProcessToJobObject(gJob, pi.hProcess)) {
+		DWORD err = GetLastError();
+		LogToFile("AssignProcessToJobObject FAILED: " + std::to_string(err));
+		// Most common failures:
+		// 5 (Access Denied), 87 (Invalid Parameter), 740 (Elevation required)
+	}
+	else {
+		LogToFile("Child successfully assigned to job");
+	}
+
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 	return success;
 }
 
