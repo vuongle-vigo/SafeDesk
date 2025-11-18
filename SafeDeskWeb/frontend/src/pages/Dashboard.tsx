@@ -1,62 +1,154 @@
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Clock, AppWindow, Power, AlertTriangle, Calendar } from 'lucide-react';
+import { Clock, AppWindow, Power, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { mockUsageByCategory, mockUsageByHour, mockUsageByDay, mockUsageByWeek, mockUsageByMonth, mockTopApps } from '../data/mockData';
+import DateRangePicker from '../components/DateRangePicker';
+import { mockAPI } from '../utils/api';
 
-type TimeRange = 'hour' | 'day' | 'week' | 'month';
-
-interface DashboardProps {
-  selectedDeviceId?: string | null;
+ interface DashboardProps {
+  selectedDeviceId: string | null;
 }
 
 export default function Dashboard({ selectedDeviceId }: DashboardProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('hour');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: today,
+    endDate: today,
+  });
 
-  const getChartData = () => {
-    switch (timeRange) {
-      case 'hour':
-        return mockUsageByHour;
-      case 'day':
-        return mockUsageByDay;
-      case 'week':
-        return mockUsageByWeek;
-      case 'month':
-        return mockUsageByMonth;
-      default:
-        return mockUsageByHour;
-    }
-  };
+  const [apiUsage, setApiUsage] = useState<any[] | null>(null); // null = not loaded, [] = loaded empty
 
-  const getXAxisKey = () => {
-    switch (timeRange) {
-      case 'hour':
-        return 'hour';
-      case 'day':
-        return 'day';
-      case 'week':
-        return 'week';
-      case 'month':
-        return 'month';
-      default:
-        return 'hour';
-    }
-  };
+  // helper to format date as YYYY-MM-DD for API path
+  function formatDate(d: Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
 
-  const getChartTitle = () => {
-    switch (timeRange) {
-      case 'hour':
-        return 'Thời gian theo giờ';
-      case 'day':
-        return 'Thời gian theo ngày';
-      case 'week':
-        return 'Thời gian theo tuần';
-      case 'month':
-        return 'Thời gian theo tháng';
-      default:
-        return 'Thời gian theo giờ';
+  useEffect(() => {
+    let mounted = true;
+    async function loadUsage() {
+      try {
+        // prefer selectedDeviceId passed from parent, otherwise fallback to localStorage/default
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        // use YYYY-MM-DD format (no time) for API path
+        const startDateStr = formatDate(dateRange.startDate);
+        const endDateStr = formatDate(dateRange.endDate);
+        const res = await mockAPI.getAgentPowerUsage(agentId, startDateStr, endDateStr, token);
+        if (!mounted) return;
+        if (res.success && Array.isArray(res.usage)) {
+          setApiUsage(res.usage);
+        } else {
+          setApiUsage([]); // treat as loaded but empty
+        }
+      } catch (err) {
+        if (mounted) setApiUsage([]);
+      }
     }
-  };
+    loadUsage();
+    return () => { mounted = false; };
+  }, [dateRange, selectedDeviceId]);
+
+  // helper to generate array of YYYY-MM-DD between two dates (inclusive)
+  function getDatesBetween(start: Date, end: Date) {
+    const arr: string[] = [];
+    const cur = new Date(start);
+    while (cur <= end) {
+      arr.push(formatDate(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return arr;
+  }
+
+  const { xAxisKey, chartTitle, granularity } = useMemo(() => {
+    const diffTime = Math.abs(dateRange.endDate.getTime() - dateRange.startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const isFullMonth = dateRange.startDate.getDate() === 1 &&
+                        dateRange.endDate.getDate() === new Date(dateRange.endDate.getFullYear(), dateRange.endDate.getMonth() + 1, 0).getDate() &&
+                        dateRange.startDate.getMonth() === dateRange.endDate.getMonth() &&
+                        dateRange.startDate.getFullYear() === dateRange.endDate.getFullYear();
+
+    if (isFullMonth) {
+      return { xAxisKey: 'week', chartTitle: 'Thời gian theo tuần trong tháng', granularity: 'week' as const };
+    } else if (diffDays === 0) {
+      return { xAxisKey: 'hour', chartTitle: 'Thời gian theo giờ', granularity: 'hour' as const };
+    } else {
+      return { xAxisKey: 'day', chartTitle: 'Thời gian theo ngày', granularity: 'day' as const };
+    }
+  }, [dateRange]);
+
+  // map API usage to chart format; fallback to mock data when apiUsage is null or empty
+  const chartData = useMemo(() => {
+    if (apiUsage === null) {
+      // still loading -> show mock
+      if (granularity === 'hour') return mockUsageByHour;
+      if (granularity === 'week') return mockUsageByWeek;
+      return mockUsageByDay;
+    }
+    if (Array.isArray(apiUsage) && apiUsage.length > 0) {
+      // normalize apiUsage entries: expect { date: 'YYYY-MM-DD', hour: number, usage_minutes: number }
+      const normalized = apiUsage.map((it: any) => ({
+        date: it.date,
+        hour: typeof it.hour === 'number' ? it.hour : (it.hour ? Number(it.hour) : undefined),
+        minutes: Number(it.usage_minutes ?? it.usage_minutes ?? it.minutes ?? 0)
+      }));
+
+      if (granularity === 'hour') {
+        // assume single-day selection (start == end). Build hours 0..23
+        const targetDate = formatDate(dateRange.startDate);
+        const hours = Array.from({ length: 24 }, (_, i) => i);
+        return hours.map((h) => {
+          const match = normalized.find((n: any) => n.date === targetDate && n.hour === h);
+          return { hour: String(h), minutes: match ? match.minutes : 0 };
+        });
+      }
+
+      if (granularity === 'day') {
+        // build list of days in range and sum minutes per day
+        const dates = getDatesBetween(dateRange.startDate, dateRange.endDate);
+        return dates.map((d) => {
+          const total = normalized
+            .filter((n: any) => n.date === d)
+            .reduce((s: number, it: any) => s + (it.minutes || 0), 0);
+          return { day: d, minutes: total };
+        });
+      }
+
+      if (granularity === 'week') {
+        // group by week number (YYYY-W{num}) across the normalized entries
+        const groups = new Map<string, number>();
+        for (const it of normalized) {
+          if (!it.date) continue;
+          const wk = (() => {
+            const d = new Date(it.date);
+            return `${d.getFullYear()}-W${getWeekNumber(d)}`;
+          })();
+          groups.set(wk, (groups.get(wk) || 0) + (it.minutes || 0));
+        }
+        // convert to array sorted by week label
+        return Array.from(groups.entries())
+          .map(([week, minutes]) => ({ week, minutes }))
+          .sort((a: any, b: any) => a.week.localeCompare(b.week));
+      }
+    }
+     // loaded but empty -> fall back to mock (so chart still shows something)
+     if (granularity === 'hour') return mockUsageByHour;
+     if (granularity === 'week') return mockUsageByWeek;
+     return mockUsageByDay;
+   }, [apiUsage, granularity, dateRange]);
+
+  // helper to compute week number (used as fallback label)
+  function getWeekNumber(d: Date) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date as any) - (yearStart as any)) / 86400000 + 1) / 7);
+  }
 
   const stats = [
     { label: 'Thời gian hôm nay', value: '6h 42m', icon: Clock, color: 'blue' },
@@ -158,24 +250,12 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
           className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 md:mb-6">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900">{getChartTitle()}</h3>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-                className="px-2 md:px-3 py-1.5 text-xs md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="hour">Theo giờ</option>
-                <option value="day">Theo ngày</option>
-                <option value="week">Theo tuần</option>
-                <option value="month">Theo tháng</option>
-              </select>
-            </div>
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">{chartTitle}</h3>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
           </div>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={getChartData()} key={timeRange}>
-              <XAxis dataKey={getXAxisKey()} stroke="#9CA3AF" style={{ fontSize: '12px' }} />
+            <BarChart data={chartData}>
+              <XAxis dataKey={xAxisKey} stroke="#9CA3AF" style={{ fontSize: '12px' }} />
               <YAxis stroke="#9CA3AF" style={{ fontSize: '12px' }} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}

@@ -1,5 +1,4 @@
-// add base URL resolution (supports Vite, CRA, Next)
-const BASE_URL =
+export const BASE_URL =
   // Vite
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
   // Create React App
