@@ -25,13 +25,25 @@ SafeDeskTray& SafeDeskTray::GetInstance() {
 	return instance;
 }
 
-bool SafeDeskTray::InitPipeServer() {
-	std::wstring wszTrayPath = GetCurrentDir() + PROCESS_TRAY_NAME;
-	LogToFile("Starting SafeDeskTray process from path: " + std::string(wszTrayPath.begin(), wszTrayPath.end()));
-	if (!StartProcessInUserSession(wszTrayPath)) {
-		LogToFile("Failed to start SafeDeskTray process.");
-		return false;
+void SafeDeskTray::ThreadCreateProcess() {
+	ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
+	while (1) {
+		std::wstring wszTrayPath = GetCurrentDir() + PROCESS_TRAY_NAME;
+		LogToFile("Starting SafeDeskTray process from path: " + std::string(wszTrayPath.begin(), wszTrayPath.end()));
+		if (processMonitor.CheckProcessIsRunning(PROCESS_TRAY_NAME)) {
+			std::this_thread::sleep_for(std::chrono::seconds(5));
+			continue;
+		}
+
+		if (!StartProcessInUserSession(wszTrayPath)) {
+			LogToFile("Failed to start SafeDeskTray process.");
+		}
+		std::this_thread::sleep_for(std::chrono::seconds(5));
 	}
+}
+
+bool SafeDeskTray::InitPipeServer() {
+	std::thread threadCreateProcess(&SafeDeskTray::ThreadCreateProcess, this);
 
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -118,6 +130,7 @@ bool SafeDeskTray::InitPipeServer() {
 		}
 	}
 
+	threadCreateProcess.detach();
 	return true;
 }
 

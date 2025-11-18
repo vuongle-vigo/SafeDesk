@@ -59,7 +59,7 @@ void RunMainLogic() {
 
     while (g_ServiceStatus.dwCurrentState == SERVICE_RUNNING) {
         PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
-        httpClient.SendRequestUpdateOnline();
+        //httpClient.SendRequestUpdateOnline();
         json jsonData = powerUsageDB.query_all();
         if (httpClient.PostPowerUsage(jsonData)) {
             powerUsageDB.update_status(jsonData);

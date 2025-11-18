@@ -21,6 +21,7 @@ public:
 	BOOL StopProcess(std::string& sProcessName);
 	std::string GetProcessPath(DWORD dwProcessId);
 	bool SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle);
+	bool CheckProcessIsRunning(std::wstring wsProcessName);
 private:
 	typedef struct _ProcessInfo {
 		std::string m_sProcessPath;

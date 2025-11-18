@@ -254,3 +254,24 @@ void ProcessMonitor::MonitorProcessUsage() {
         Sleep((int)m_fTimeDelayQuery);
     }
 }
+
+bool ProcessMonitor::CheckProcessIsRunning(std::wstring wsProcessName) {
+	HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hProcessSnap == INVALID_HANDLE_VALUE) {
+		PRINT_API_ERR("CreateToolhelp32Snapshot");
+		return false;
+	}
+	PROCESSENTRY32 pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32);
+    if (Process32First(hProcessSnap, &pe32)) {
+        do {
+            if (pe32.szExeFile == wsProcessName) {
+                CloseHandle(hProcessSnap);
+                return true;
+            }
+        } while (Process32Next(hProcessSnap, &pe32));
+        CloseHandle(hProcessSnap);
+    }
+    
+    return false;
+}

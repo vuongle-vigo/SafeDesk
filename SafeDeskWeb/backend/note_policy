@@ -1,0 +1,81 @@
+{
+  "blocked_apps": [
+    "discord.exe",
+    "steam.exe",
+    "roblox.exe"
+  ],
+
+  "app_usage_limits": {
+    "chrome.exe": {
+      "max_daily_minutes": 120,
+      "allowed_hours": ["08:00-22:00"]
+    },
+    "valorant.exe": {
+      "max_daily_minutes": 60,
+      "allowed_hours": ["17:00-22:00"]
+    }
+  },
+
+  "app_restrictions": {
+    "allowed_apps": [],
+    "blocked_apps_hard": [],
+    "stop_app_when_blocked": true
+  },
+
+  "machine_limit": {
+    "weekly_schedule": {
+      "monday": {
+        "allowed_hours": ["08:00-17:00"],
+        "max_daily_minutes": 300,
+        "block_entire_day": false
+      },
+      "tuesday": {
+        "allowed_hours": ["08:00-17:00"],
+        "max_daily_minutes": 300,
+        "block_entire_day": false
+      },
+      "wednesday": {
+        "allowed_hours": ["08:00-17:00"],
+        "max_daily_minutes": 300,
+        "block_entire_day": false
+      },
+      "thursday": {
+        "allowed_hours": ["08:00-17:00"],
+        "max_daily_minutes": 300,
+        "block_entire_day": false
+      },
+      "friday": {
+        "allowed_hours": ["08:00-17:00"],
+        "max_daily_minutes": 300,
+        "block_entire_day": false
+      },
+      "saturday": {
+        "allowed_hours": ["09:00-12:00"],
+        "max_daily_minutes": 180,
+        "block_entire_day": false
+      },
+      "sunday": {
+        "allowed_hours": [],
+        "max_daily_minutes": 0,
+        "block_entire_day": true
+      }
+    }
+  },
+
+  "uninstall_policy": {
+    "enable_remote_uninstall": true,
+    "require_confirmation": false,
+    "exe_paths": [
+      "C:/Program Files/Steam/steam.exe",
+      "C:/Program Files/Discord/discord.exe"
+    ]
+  },
+
+  "stop_app_policy": {
+    "enable_kill_app": true,
+    "exe_paths": [
+      "C:/Program Files/Steam/steam.exe",
+      "C:/Program Files/Discord/discord.exe"
+    ]
+  }
+}

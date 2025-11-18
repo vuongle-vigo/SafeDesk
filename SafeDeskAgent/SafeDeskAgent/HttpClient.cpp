@@ -83,6 +83,11 @@ bool HttpClient::PostPowerUsage(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	auto response = m_client.Post(API_POWER_USAGE_POST, m_headers, data.dump(), "application/json");
+	if (response == nullptr) {
+		std::cerr << "No response from server." << std::endl;
+		return false;
+	}
+
 	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
@@ -90,6 +95,7 @@ bool HttpClient::PostPowerUsage(json data) {
 		std::cerr << "Request failed: " << response->body << std::endl;
 		return false;
 	}
+
 	return true;
 }
 
@@ -97,6 +103,11 @@ bool HttpClient::PostProcessUsage(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	auto response = m_client.Post(API_PROCESS_USAGE_POST, m_headers, data.dump(), "application/json");
+	if (response == nullptr) {
+		std::cerr << "No response from server." << std::endl;
+		return false;
+	}
+
 	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}
@@ -111,6 +122,11 @@ bool HttpClient::PostApplication(json data) {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
 	auto response = m_client.Post(API_APPLICATION_POST, m_headers, data.dump(), "application/json");
+	if (response == nullptr) {
+		std::cerr << "No response from server." << std::endl;
+		return false;
+	}
+
 	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}

@@ -13,6 +13,7 @@ public:
 	~SafeDeskTray();
 	static SafeDeskTray& GetInstance();
 	bool InitPipeServer();
+	void ThreadCreateProcess();
 	bool MessageHandle();
 	bool SendMessageToTray(const std::wstring& wszMessage);
 private:
