@@ -74,7 +74,7 @@ function App() {
       case 'activity':
         return <Activity selectedDeviceId={selectedDeviceId} />;
       case 'screenshots':
-        return <Screenshots />;
+        return <Screenshots selectedDeviceId={selectedDeviceId}/>;
       case 'history':
         return <History />;
       case 'limits':

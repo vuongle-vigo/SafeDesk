@@ -61,8 +61,6 @@ async function getTopApplicationsByTimeRange(req, res) {
             agentId, timeStart, timeEnd
         );
 
-        console.log("Applications Usage before filtering:", applicationsUsage);
-
         // remove null total_usage
         applicationsUsage = applicationsUsage.filter(app => app.total_usage != null);
 

@@ -18,6 +18,7 @@ HttpClient::HttpClient()
 	std::string token, agentId;
 	token = tokenDB.getAgentToken();
 	agentId = tokenDB.getAgentId();
+	DEBUG_LOG("HttpClient Init with Token: %s, AgentId: %s", token.c_str(), agentId.c_str());
 	m_headers = {
 		{"x-agent-token", token},
 		{"x-agent-id", agentId}
@@ -78,6 +79,33 @@ bool HttpClient::SendRequestGetPolling() {
 
 	return true;
 }
+
+json HttpClient::GetCommandsPolling() {
+	Config& cfg = Config::GetInstance();
+	Client client(cfg.GetHost(), cfg.GetPort());
+	auto response = client.Get(API_COMMANDS_POLLING, m_headers);
+	if (response == nullptr) {
+		std::cerr << "No response from server." << std::endl;
+		return json();
+	}
+
+	if (response && response->status == 200) {
+		try {
+			auto res = json::parse(response->body);
+			return res;
+		}
+		catch (const json::parse_error& e) {
+			std::cerr << "JSON parse error: " << e.what() << std::endl;
+			return json();
+		}
+	}
+	else {
+		std::cerr << "Request failed: " << response->status << std::endl;
+	}
+
+	return json();
+}
+
 
 bool HttpClient::PostPowerUsage(json data) {
 	Config& cfg = Config::GetInstance();

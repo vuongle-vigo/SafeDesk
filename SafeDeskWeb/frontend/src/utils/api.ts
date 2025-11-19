@@ -231,6 +231,77 @@ export const mockAPI = {
     }
   },
 
+  // Tạo command cho agent (ví dụ: uninstall)
+  createAgentCommand: async (agentId: string, body: Record<string, any>, token?: string): Promise<{ success: boolean; commandId?: string; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/commands`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to create command' };
+      }
+      return { success: true, commandId: data?.commandId || null };
+    } catch (err: any) {
+      // khi offline hoặc mock mode, simulate success nhưng trả về một id giả
+      console.log(`Mock createAgentCommand for agent ${agentId}`, body);
+      return new Promise(resolve => setTimeout(() => resolve({ success: true, commandId: Date.now().toString() }), 300));
+    }
+  },
+
+  // Yêu cầu agent chụp màn hình bằng cách tạo command capturescreen
+  requestScreenshot: async (agentId: string, token?: string): Promise<{ success: boolean; commandId?: string; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const body = {
+        commandType: 'capturescreen',
+        commandParams: {}
+      };
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/commands`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to request screenshot' };
+      }
+      return { success: true, commandId: data?.commandId || null };
+    } catch (err: any) {
+      console.log(`Mock requestScreenshot for agent ${agentId}`);
+      return new Promise(resolve => setTimeout(() => resolve({ success: true, commandId: Date.now().toString() }), 300));
+    }
+  },
+
+  // Lấy danh sách screenshots cho agent
+  getScreenshots: async (agentId: string, limit = 50, token?: string): Promise<{ success: boolean; screenshots?: any[]; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/screenshots?limit=${encodeURIComponent(String(limit))}`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch screenshots' };
+      }
+      return { success: true, screenshots: data?.screenshots || data?.items || data || [] };
+    } catch (err: any) {
+      console.log(`Mock getScreenshots for agent ${agentId}`);
+      return { success: true, screenshots: [] };
+    }
+  },
+
   getAgentPowerUsage: async (agentId: string, timeStart: string, timeEnd: string, token?: string): Promise<{ success: boolean; usage?: any[]; error?: string }> => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };

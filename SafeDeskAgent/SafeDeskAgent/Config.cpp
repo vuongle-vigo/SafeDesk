@@ -7,7 +7,8 @@
 
 Config::Config() {
     m_wszWorkdir = GetCurrentDir();
-    m_szServerHost = "10.15.3.13";
+    //m_szServerHost = "10.15.3.13";
+	m_szServerHost = "192.168.0.100";
     m_serverPort = 8889;
 }
 

@@ -22,6 +22,7 @@ void ThreadMonitorApp();
 void ThreadMonitorPower();
 void ThreadMonitorProcess();
 void ThreadSafeDeskTray();
+void ThreadCommandHandle();
 
 static void SetRecoveryOptions(SC_HANDLE hService) {
     SC_ACTION actions[3];
@@ -219,9 +220,10 @@ int main(int argc, char* argv[]) {
     else {
         //service::ServiceManager::CreateService();
 		//RunMainLogic();
-		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+		/*BrowserHistory& browserHistory = BrowserHistory::GetInstance();
 		json history = browserHistory.GetEdgeHistory();
-		std::cout << history.dump(4) << std::endl;
+		std::cout << history.dump(4) << std::endl;*/
+        ThreadCommandHandle();
     }
 
 	//LoginDB& sqlite = LoginDB::GetInstance();
@@ -278,4 +280,13 @@ void ThreadMonitorProcess() {
 void ThreadSafeDeskTray() {
     SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
     safeDeskTray.InitPipeServer();
+}
+
+void ThreadCommandHandle() {
+	HttpClient& httpClient = HttpClient::GetInstance();
+    while (1) {
+        json commands = httpClient.GetCommandsPolling();
+		DEBUG_LOG("Commands: %s", commands.dump().c_str());
+        std::this_thread::sleep_for(std::chrono::seconds(30));
+	}
 }

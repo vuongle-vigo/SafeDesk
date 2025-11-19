@@ -399,3 +399,12 @@ age: 0.100000 minutes
 2025-11-18 17:06: Failed to start SafeDeskTray process.
 2025-11-19 18:03: Failed to prepare statement: no such table: visited_links
 2025-11-19 18:04: Failed to prepare statement: no such table: visited_links
+2025-11-19 19:12: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:12: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:13: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:14: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:16: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:17: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:18: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\C:\Users\levuong\Documents\GitHub\SafeDesk\SafeDeskAgent\sqlite_db\safedesk.db
+2025-11-19 19:19: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db
+2025-11-19 19:19: Can't open database: C:\Users\ADMIN\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safedesk.db

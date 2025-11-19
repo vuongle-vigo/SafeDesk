@@ -1,4 +1,5 @@
 const commandModel = require('./command.model');
+const agentModel = require('../agent/agent.model');
 
 async function pollCommands(agentId) {
     try {
@@ -10,6 +11,10 @@ async function pollCommands(agentId) {
 }
 
 async function addCommand(agentId, commandType, commandParams) {
+    if (!await agentModel.findAgentById(agentId)) {
+        throw new Error('Agent not found');
+    }
+    
     try {
         const command = await commandModel.addCommand(agentId, commandType, commandParams);
         return command;

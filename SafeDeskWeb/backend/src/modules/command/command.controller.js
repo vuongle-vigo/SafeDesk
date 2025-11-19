@@ -5,7 +5,7 @@ async function pollCommands(req, res) {
         const agentId = req.headers['x-agent-id'];
         const results = await commandService.pollCommands(agentId);
         return res.json({
-            commands: results
+            commands: results || []
         });
     }
     catch (error) {
@@ -13,12 +13,12 @@ async function pollCommands(req, res) {
     }   
 }
 
-async function addCommand(req, res) {
+async function createCommand(req, res) {
     try {
         const agentId = req.params.agentId;
         const { commandType, commandParams } = req.body;
         if (!agentId) {
-            return res.status(401).json({ error: 'Agent authentication required' });
+            return res.status(400).json({ error: 'Agent ID is required' });
         }
         if (!commandType) {
             return res.status(400).json({ error: 'Command type is required' });
@@ -26,7 +26,7 @@ async function addCommand(req, res) {
         const data = await commandService.addCommand(agentId, commandType, commandParams);
         return res.json({
             message: 'Command added successfully',
-            commandId: data.commandId
+            commandId: data?.commandId || null
         });
     } catch (error) {
         return res.status(400).json({ error: error.message });
@@ -49,4 +49,4 @@ async function updateCommandStatus(req, res) {
     }
 };
 
-module.exports = { pollCommands, addCommand, updateCommandStatus };
+module.exports = { pollCommands, createCommand, updateCommandStatus };

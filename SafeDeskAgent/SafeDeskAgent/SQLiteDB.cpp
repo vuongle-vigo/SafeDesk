@@ -5,6 +5,7 @@
 // SQLiteDB class implementation
 SQLiteDB::SQLiteDB() {
     if (sqlite3_open(dbPath.c_str(), &db) != SQLITE_OK) {
+		DEBUG_LOG("Failed to open database: %s", dbPath.c_str());
 		LogToFile("Can't open database: " + dbPath);
         db = nullptr;
     }

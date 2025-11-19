@@ -70,7 +70,21 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
         alert(res.error || 'Không thể gửi yêu cầu gỡ cài đặt');
         return;
       }
-      // scheduled successfully — do not remove immediately; backend will handle actual uninstall
+
+      // tạo thêm command loại "uninstall" để agent nhận lệnh
+      const cmdBody = {
+        commandType: 'uninstall',
+        commandParams: {
+          appId,
+          appName: targetApp?.app_name || targetApp?.name || ''
+        }
+      };
+      const cmdRes = await mockAPI.createAgentCommand(String(agentId), cmdBody, token);
+      if (!cmdRes.success) {
+        // không revert optimistic UI, chỉ thông báo
+        alert(cmdRes.error || 'Không thể tạo command gỡ cài đặt cho agent');
+      }
+      // scheduled successfully — backend/agent sẽ xử lý thực tế
     } catch (err: any) {
       setApps(prev => prev.map(a => a.id === appId ? { ...a, status: targetApp?.status || '' } : a));
       alert(err?.message || 'Lỗi mạng khi gửi yêu cầu gỡ cài đặt');
