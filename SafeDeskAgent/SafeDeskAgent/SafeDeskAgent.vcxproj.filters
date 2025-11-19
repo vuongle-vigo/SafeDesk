@@ -39,6 +39,12 @@
     <Filter Include="DriverCommunication">
       <UniqueIdentifier>{e8f7a358-0c41-47af-9086-047cbefa6836}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CaptureScreen">
+      <UniqueIdentifier>{a8c16e90-06dc-4b4d-85aa-2376077ef920}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BrowserHistory">
+      <UniqueIdentifier>{3eaa1ce6-3843-45e9-bf1b-c11355cfe213}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -77,6 +83,12 @@
     <ClCompile Include="Communication.cpp">
       <Filter>DriverCommunication</Filter>
     </ClCompile>
+    <ClCompile Include="CaptureScreen.cpp">
+      <Filter>CaptureScreen</Filter>
+    </ClCompile>
+    <ClCompile Include="BrowserHistory.cpp">
+      <Filter>BrowserHistory</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMonitor.h">
@@ -108,6 +120,12 @@
     </ClInclude>
     <ClInclude Include="Communication.h">
       <Filter>DriverCommunication</Filter>
+    </ClInclude>
+    <ClInclude Include="CaptureScreen.h">
+      <Filter>CaptureScreen</Filter>
+    </ClInclude>
+    <ClInclude Include="BrowserHistory.h">
+      <Filter>BrowserHistory</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

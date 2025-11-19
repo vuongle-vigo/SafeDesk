@@ -7,6 +7,5 @@ const authMiddleware = require('../../middlewares/auth.middleware');
 router.post('/register', agentController.register);
 router.get('/', authMiddleware, agentController.getAllAgents);
 router.get('/status', authMiddleware, agentController.getAgentStatus);
-router.post('/process-usage', agentMiddleware, agentController.addProcessUsage);
 
 module.exports = router;

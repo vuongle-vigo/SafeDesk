@@ -51,3 +51,5 @@ void ShutdownGDIPlus();
 std::string Base64Encode(const BYTE* data, DWORD length);
 std::vector<BYTE> IconToPngBytes(HICON hIcon);
 std::string ExtractIconBase64(const std::wstring& exePath);
+std::string CleanProcessPath(const std::string& processPath);
+std::wstring GetLocalAppDataPath();

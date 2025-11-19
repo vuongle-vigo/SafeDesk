@@ -15,4 +15,28 @@ async function getApplicationsByAgentId(agentId) {
     return applications;
 }
 
-module.exports = { addApplication, getApplicationsByAgentId };
+async function getApplicationsUsageByTimeRange(agentId, timeStart, timeEnd) {
+    const applicationsUsage = await applicationModel.findApplicationsUsageByTimeRange(agentId, timeStart, timeEnd);
+    return applicationsUsage;
+}
+
+async function setApplicationLimit(agentId, appId, dailyLimitMinutes) {
+    if (await agentModel.findAgentById(agentId) == null) {
+        throw new Error('Invalid agent ID');
+    }
+
+    const result = await applicationModel.updateApplicationLimit(appId, dailyLimitMinutes);
+    return result;
+}
+
+async function updateApplicationStatus(agentId, appId, status) {
+    if (await agentModel.findAgentById(agentId) == null) {
+        throw new Error('Invalid agent ID');
+    }
+
+    const result = await applicationModel.updateApplicationStatus(appId, status);
+    return result;
+}
+
+module.exports = { addApplication, getApplicationsByAgentId, getApplicationsUsageByTimeRange, 
+    setApplicationLimit, updateApplicationStatus };

@@ -1,12 +1,18 @@
 import { Clock, Calendar, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { mockActivitySessions } from '../data/mockData';
+import { useState, useEffect } from 'react';
 import { ActivitySession } from '../types';
+import { mockAPI } from '../utils/api';
 
-export default function Activity() {
-  const [sessions] = useState<ActivitySession[]>(mockActivitySessions);
-  const [selectedDate, setSelectedDate] = useState('2025-11-13');
+interface ActivityProps {
+  selectedDeviceId: string | null;
+}
+
+export default function Activity({ selectedDeviceId }: ActivityProps) {
+  const [sessions, setSessions] = useState<ActivitySession[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  // default to today in YYYY-MM-DD so the date picker matches today's data
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const totalDuration = sessions.reduce((sum, session) => sum + session.duration, 0);
   const uniqueApps = new Set(sessions.map(s => s.appName)).size;
@@ -30,6 +36,49 @@ export default function Activity() {
     };
     return colors[category as keyof typeof colors] || colors.other;
   };
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadProcesses() {
+      try {
+        setIsLoading(true);
+        // prefer selectedDeviceId passed from parent, otherwise fallback to localStorage/default
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        // selectedDate is already YYYY-MM-DD (input[type=date])
+        const res = await mockAPI.getAgentProcessUsage(agentId, selectedDate, selectedDate, token);
+        if (!mounted) return;
+        if (res.success && Array.isArray(res.usage)) {
+          // map backend fields to ActivitySession expected by the UI
+          const mapped = (res.usage as any[]).map((it) => {
+            const iconEl = it?.icon_base64
+              ? (<img src={`data:image/png;base64,${it.icon_base64}`} alt={it?.app_name ?? ''} className="w-8 h-8 object-contain" />)
+              : (it?.app_name ? (it.app_name[0] || '') : '🔍');
+
+            return {
+              id: String(it?.usage_id ?? `${it?.agent_id ?? ''}-${it?.date_recorded ?? ''}-${it?.start_time ?? ''}`),
+              icon: iconEl,
+              duration: Math.round(Number(it?.time_usage ?? 0)),
+              appName: it?.app_name ?? (it?.process_path ? it.process_path.split('\\').pop() : 'Unknown'),
+              windowTitle: it?.process_title ?? '',
+              category: 'other',
+              startTime: it?.start_time ?? '',
+              processName: it?.process_path ?? ''
+            } as ActivitySession;
+          });
+          setSessions(mapped);
+        } else {
+          setSessions([]);
+        }
+      } catch (err) {
+        if (mounted) setSessions([]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+    loadProcesses();
+    return () => { mounted = false; };
+  }, [selectedDate, selectedDeviceId]);
 
   return (
     <div className="space-y-6">
@@ -61,7 +110,7 @@ export default function Activity() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Tổng thời gian</p>
-              <p className="text-xl font-bold text-gray-900">{formatDuration(totalDuration)}</p>
+              <p className="text-xl font-bold text-gray-900">{isLoading ? 'Đang tải...' : formatDuration(totalDuration)}</p>
             </div>
           </div>
         </motion.div>
@@ -156,7 +205,7 @@ export default function Activity() {
         </div>
       </div>
 
-      {sessions.length === 0 && (
+      {!isLoading && sessions.length === 0 && (
         <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Clock className="w-8 h-8 text-gray-400" />

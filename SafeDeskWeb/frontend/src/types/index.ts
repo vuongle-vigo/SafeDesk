@@ -64,6 +64,16 @@ export interface UsageLimit {
   usedMinutes: number;
 }
 
+export interface AppUsageDaily {
+  id: string;
+  appName: string;
+  icon: string;
+  date: string;
+  minutesUsed: number;
+  category: 'system' | 'game' | 'office' | 'education' | 'other';
+  limitMinutes?: number;
+}
+
 export interface DailySchedule {
   id: string;
   dayOfWeek: number;

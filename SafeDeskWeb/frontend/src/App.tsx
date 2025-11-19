@@ -69,16 +69,16 @@ function App() {
         return <Dashboard selectedDeviceId={selectedDeviceId} />;
       case 'apps':
         return <Apps selectedDeviceId={selectedDeviceId} />;
-      case 'processes':
-        return <Processes />;
+      // case 'processes':
+      //   return <Processes />;
       case 'activity':
-        return <Activity />;
+        return <Activity selectedDeviceId={selectedDeviceId} />;
       case 'screenshots':
         return <Screenshots />;
       case 'history':
         return <History />;
       case 'limits':
-        return <Limits />;
+        return <Limits selectedDeviceId={selectedDeviceId} />;
       case 'settings':
         return <Settings />;
       default:

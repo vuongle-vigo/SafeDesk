@@ -51,9 +51,29 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
     return () => { mounted = false; };
   }, [selectedDeviceId]);
 
-  const handleUninstall = (appId: string) => {
-    if (window.confirm('Bạn có chắc muốn gỡ cài đặt ứng dụng này?')) {
-      setApps(apps.filter(app => app.id !== appId));
+  const handleUninstall = async (appId: string) => {
+    if (!window.confirm('Bạn có chắc muốn gỡ cài đặt ứng dụng này?')) return;
+
+    // find app and agent id
+    const targetApp = apps.find(a => a.id === appId);
+    const agentId = selectedDeviceId || targetApp?.agent_id || targetApp?.deviceId;
+    const token = localStorage.getItem('token') || undefined;
+
+    // optimistic update: mark as uninstalling
+    setApps(prev => prev.map(a => a.id === appId ? { ...a, status: 'uninstalling' } : a));
+
+    try {
+      const res = await mockAPI.setAgentApplicationsStatus(String(agentId), { appId, status: 'uninstalling' }, token);
+      if (!res.success) {
+        // revert status
+        setApps(prev => prev.map(a => a.id === appId ? { ...a, status: targetApp?.status || '' } : a));
+        alert(res.error || 'Không thể gửi yêu cầu gỡ cài đặt');
+        return;
+      }
+      // scheduled successfully — do not remove immediately; backend will handle actual uninstall
+    } catch (err: any) {
+      setApps(prev => prev.map(a => a.id === appId ? { ...a, status: targetApp?.status || '' } : a));
+      alert(err?.message || 'Lỗi mạng khi gửi yêu cầu gỡ cài đặt');
     }
   };
 
@@ -164,77 +184,85 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
           const status = app.status || '';
           const lastUpdated = app.last_updated || app.lastUpdated || '';
           const iconBase64 = app.icon_base64 || app.iconBase64 || null;
-          return (
-            <motion.div
-              key={app.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-xl p-4 md:p-5 border border-gray-200 hover:shadow-md transition-all"
-            >
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50 overflow-hidden">
-                  {iconBase64 ? (
-                    <img src={`data:image/png;base64,${iconBase64}`} alt={name} className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="text-xl md:text-2xl text-gray-600">{name.charAt(0)}</div>
-                  )}
-                </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate">{name}</h3>
-                    {editingAppId === app.id ? (
-                      <div className="flex items-center gap-1">
-                        <select
-                          value={app.category}
-                          onChange={(e) => handleChangeCategory(app.id, e.target.value)}
-                          className="text-xs px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          autoFocus
-                        >
-                          {categoryLabels.map(cat => (
-                            <option key={cat.id} value={cat.category}>{cat.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => setEditingAppId(null)}
-                          className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setEditingAppId(app.id)}
-                        className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
-                        style={{ backgroundColor: getCategoryColor(app.category) + '20', color: getCategoryColor(app.category) }}
-                      >
-                        <span>{getCategoryLabel(app.category)}</span>
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs md:text-sm text-gray-500 flex-wrap">
-                    {version && <span>Phiên bản: <span className="font-mono">{version}</span></span>}
-                    {publisher && <span>• Nhà phát hành: {publisher}</span>}
-                    {status && <span>• Trạng thái: {status}</span>}
-                    {lastUpdated && <span>• Cập nhật: {lastUpdated}</span>}
-                  </div>
-                </div>
-
+          // enable uninstall only when quite_uninstall_string is non-empty
+          const canUninstall = !!((app.quite_uninstall_string || app.quiet_uninstall_string || '').toString().trim());
+          // if backend set status to "uninstalling", show "Đang gỡ" and disable the button
+          const isUninstalling = (status === 'uninstalling');
+          const buttonDisabled = !canUninstall || isUninstalling;
+           return (
+             <motion.div
+               key={app.id}
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: index * 0.05 }}
+               className="bg-white rounded-xl p-4 md:p-5 border border-gray-200 hover:shadow-md transition-all"
+             >
+               <div className="flex items-center gap-3 md:gap-4">
+                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50 overflow-hidden">
+                   {iconBase64 ? (
+                     <img src={`data:image/png;base64,${iconBase64}`} alt={name} className="w-full h-full object-contain" />
+                   ) : (
+                     <div className="text-xl md:text-2xl text-gray-600">{name.charAt(0)}</div>
+                   )}
+                 </div>
+ 
+                 <div className="flex-1 min-w-0">
+                   <div className="flex items-center gap-2 mb-1 flex-wrap">
+                     <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate">{name}</h3>
+                     {editingAppId === app.id ? (
+                       <div className="flex items-center gap-1">
+                         <select
+                           value={app.category}
+                           onChange={(e) => handleChangeCategory(app.id, e.target.value)}
+                           className="text-xs px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           autoFocus
+                         >
+                           {categoryLabels.map(cat => (
+                             <option key={cat.id} value={cat.category}>{cat.label}</option>
+                           ))}
+                         </select>
+                         <button
+                           onClick={() => setEditingAppId(null)}
+                           className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                         >
+                           <X className="w-3 h-3" />
+                         </button>
+                       </div>
+                     ) : (
+                       <button
+                         onClick={() => setEditingAppId(app.id)}
+                         className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
+                         style={{ backgroundColor: getCategoryColor(app.category) + '20', color: getCategoryColor(app.category) }}
+                       >
+                         <span>{getCategoryLabel(app.category)}</span>
+                         <Edit2 className="w-3 h-3" />
+                       </button>
+                     )}
+                   </div>
+                   <div className="flex items-center gap-3 text-xs md:text-sm text-gray-500 flex-wrap">
+                     {version && <span>Phiên bản: <span className="font-mono">{version}</span></span>}
+                     {publisher && <span>• Nhà phát hành: {publisher}</span>}
+                     {status && <span>• Trạng thái: {status}</span>}
+                     {lastUpdated && <span>• Cập nhật: {lastUpdated}</span>}
+                   </div>
+                 </div>
+ 
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleUninstall(app.id)}
-                  className="px-3 md:px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2 flex-shrink-0"
+                  whileHover={!buttonDisabled ? { scale: 1.05 } : undefined}
+                  whileTap={!buttonDisabled ? { scale: 0.95 } : undefined}
+                  onClick={() => !buttonDisabled && handleUninstall(app.id)}
+                  disabled={buttonDisabled}
+                  title={isUninstalling ? 'Đang gỡ' : (!canUninstall ? 'Không thể gỡ cài đặt trên thiết bị này' : 'Gỡ')}
+                  className={`${!buttonDisabled ? 'px-3 md:px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100' : 'px-3 md:px-4 py-2 bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg transition-colors flex items-center gap-2 flex-shrink-0`}
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span className="font-medium hidden sm:inline">Gỡ</span>
+                  <span className="font-medium hidden sm:inline">{isUninstalling ? 'Đang gỡ' : 'Gỡ'}</span>
                 </motion.button>
-              </div>
-            </motion.div>
-          );
-        })}
+               </div>
+             </motion.div>
+           );
+         })}
       </div>
 
       {filteredApps.length === 0 && (

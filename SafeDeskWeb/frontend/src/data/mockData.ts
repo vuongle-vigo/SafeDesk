@@ -1,4 +1,4 @@
-import { AppInfo, Process, Screenshot, BrowserHistory, UsageLimit, User, Device, CategoryLabel, ActivitySession, DailySchedule } from '../types';
+import { AppInfo, Process, Screenshot, BrowserHistory, UsageLimit, User, Device, CategoryLabel, ActivitySession, DailySchedule, AppUsageDaily } from '../types';
 
 export const mockUser: User = {
   name: 'Nguyễn Văn An',
@@ -99,10 +99,9 @@ export const mockBrowserHistory: BrowserHistory[] = [
 ];
 
 export const mockUsageLimits: UsageLimit[] = [
-  { id: '1', name: 'Game', type: 'category', category: 'game', limitMinutes: 120, usedMinutes: 95 },
-  { id: '2', name: 'Social Media', type: 'category', category: 'other', limitMinutes: 60, usedMinutes: 48 },
-  { id: '3', name: 'Google Chrome', type: 'app', appId: '2', limitMinutes: 180, usedMinutes: 156 },
-  { id: '4', name: 'League of Legends', type: 'app', appId: '6', limitMinutes: 90, usedMinutes: 72 }
+  { id: '1', name: 'Google Chrome', type: 'app', appId: '2', limitMinutes: 180, usedMinutes: 156 },
+  { id: '2', name: 'League of Legends', type: 'app', appId: '6', limitMinutes: 90, usedMinutes: 72 },
+  { id: '3', name: 'Discord', type: 'app', appId: '8', limitMinutes: 120, usedMinutes: 95 }
 ];
 
 export const mockUsageByCategory = [
@@ -113,6 +112,14 @@ export const mockUsageByCategory = [
 ];
 
 export const mockUsageByHour = [
+  { hour: '0h', minutes: 0 },
+  { hour: '1h', minutes: 0 },
+  { hour: '2h', minutes: 0 },
+  { hour: '3h', minutes: 0 },
+  { hour: '4h', minutes: 0 },
+  { hour: '5h', minutes: 0 },
+  { hour: '6h', minutes: 5 },
+  { hour: '7h', minutes: 12 },
   { hour: '8h', minutes: 15 },
   { hour: '9h', minutes: 42 },
   { hour: '10h', minutes: 65 },
@@ -122,24 +129,53 @@ export const mockUsageByHour = [
   { hour: '14h', minutes: 72 },
   { hour: '15h', minutes: 54 },
   { hour: '16h', minutes: 48 },
-  { hour: '17h', minutes: 35 }
+  { hour: '17h', minutes: 35 },
+  { hour: '18h', minutes: 28 },
+  { hour: '19h', minutes: 42 },
+  { hour: '20h', minutes: 55 },
+  { hour: '21h', minutes: 38 },
+  { hour: '22h', minutes: 20 },
+  { hour: '23h', minutes: 8 }
 ];
 
 export const mockUsageByDay = [
-  { day: 'T2', minutes: 320 },
-  { day: 'T3', minutes: 285 },
-  { day: 'T4', minutes: 412 },
-  { day: 'T5', minutes: 378 },
-  { day: 'T6', minutes: 445 },
-  { day: 'T7', minutes: 520 },
-  { day: 'CN', minutes: 380 }
+  { day: '1', minutes: 320 },
+  { day: '2', minutes: 285 },
+  { day: '3', minutes: 412 },
+  { day: '4', minutes: 378 },
+  { day: '5', minutes: 445 },
+  { day: '6', minutes: 520 },
+  { day: '7', minutes: 380 },
+  { day: '8', minutes: 395 },
+  { day: '9', minutes: 410 },
+  { day: '10', minutes: 365 },
+  { day: '11', minutes: 430 },
+  { day: '12', minutes: 385 },
+  { day: '13', minutes: 475 },
+  { day: '14', minutes: 390 },
+  { day: '15', minutes: 405 },
+  { day: '16', minutes: 420 },
+  { day: '17', minutes: 355 },
+  { day: '18', minutes: 440 },
+  { day: '19', minutes: 400 },
+  { day: '20', minutes: 415 },
+  { day: '21', minutes: 460 },
+  { day: '22', minutes: 370 },
+  { day: '23', minutes: 425 },
+  { day: '24', minutes: 395 },
+  { day: '25', minutes: 450 },
+  { day: '26', minutes: 410 },
+  { day: '27', minutes: 435 },
+  { day: '28', minutes: 380 },
+  { day: '29', minutes: 465 },
+  { day: '30', minutes: 420 }
 ];
 
 export const mockUsageByWeek = [
-  { week: 'T1', minutes: 2145 },
-  { week: 'T2', minutes: 2320 },
-  { week: 'T3', minutes: 2580 },
-  { week: 'T4', minutes: 2410 }
+  { week: 'T1', minutes: 2740 },
+  { week: 'T2', minutes: 2815 },
+  { week: 'T3', minutes: 2690 },
+  { week: 'T4', minutes: 2945 }
 ];
 
 export const mockUsageByMonth = [
@@ -167,7 +203,17 @@ export const mockTopApps = [
   { name: 'Visual Studio Code', time: '3h 45m', percentage: 23 },
   { name: 'Discord', time: '2h 18m', percentage: 14 },
   { name: 'Spotify', time: '1h 56m', percentage: 12 },
-  { name: 'Notion', time: '1h 24m', percentage: 9 }
+  { name: 'Notion', time: '1h 24m', percentage: 9 },
+  { name: 'Figma', time: '58m', percentage: 6 }
+];
+
+export const mockTopWebsites = [
+  { name: 'github.com', visits: 245, time: '2h 45m', percentage: 32 },
+  { name: 'stackoverflow.com', visits: 156, time: '1h 52m', percentage: 22 },
+  { name: 'youtube.com', visits: 89, time: '1h 34m', percentage: 18 },
+  { name: 'reddit.com', visits: 67, time: '1h 12m', percentage: 14 },
+  { name: 'twitter.com', visits: 52, time: '48m', percentage: 9 },
+  { name: 'facebook.com', visits: 34, time: '32m', percentage: 5 }
 ];
 
 export const mockDailySchedules: DailySchedule[] = [
@@ -178,4 +224,22 @@ export const mockDailySchedules: DailySchedule[] = [
   { id: '5', dayOfWeek: 5, dayName: 'Thứ 6', enabled: true, startTime: '08:00', endTime: '22:00' },
   { id: '6', dayOfWeek: 6, dayName: 'Thứ 7', enabled: false, startTime: '09:00', endTime: '21:00' },
   { id: '7', dayOfWeek: 0, dayName: 'Chủ nhật', enabled: false, startTime: '09:00', endTime: '21:00' }
+];
+
+export const mockAppUsageDaily: AppUsageDaily[] = [
+  { id: '1', appName: 'Google Chrome', icon: '🌐', date: '2025-11-19', minutesUsed: 145, category: 'other', limitMinutes: 180 },
+  { id: '2', appName: 'Visual Studio Code', icon: '💻', date: '2025-11-19', minutesUsed: 220, category: 'office', limitMinutes: 300 },
+  { id: '3', appName: 'Discord', icon: '💬', date: '2025-11-19', minutesUsed: 85, category: 'other', limitMinutes: 120 },
+  { id: '4', appName: 'Spotify', icon: '🎵', date: '2025-11-19', minutesUsed: 65, category: 'other' },
+  { id: '5', appName: 'League of Legends', icon: '🎮', date: '2025-11-19', minutesUsed: 110, category: 'game', limitMinutes: 90 },
+  { id: '6', appName: 'Microsoft Word', icon: '📝', date: '2025-11-19', minutesUsed: 45, category: 'office' },
+  { id: '7', appName: 'Photoshop', icon: '🎨', date: '2025-11-19', minutesUsed: 95, category: 'other' },
+  { id: '8', appName: 'Notion', icon: '📋', date: '2025-11-19', minutesUsed: 52, category: 'office' },
+  { id: '9', appName: 'Zoom', icon: '📹', date: '2025-11-19', minutesUsed: 30, category: 'office' },
+  { id: '10', appName: 'Calculator', icon: '🔢', date: '2025-11-19', minutesUsed: 3, category: 'system' },
+  { id: '11', appName: 'Google Chrome', icon: '🌐', date: '2025-11-18', minutesUsed: 160, category: 'other', limitMinutes: 180 },
+  { id: '12', appName: 'Visual Studio Code', icon: '💻', date: '2025-11-18', minutesUsed: 280, category: 'office', limitMinutes: 300 },
+  { id: '13', appName: 'Discord', icon: '💬', date: '2025-11-18', minutesUsed: 95, category: 'other', limitMinutes: 120 },
+  { id: '14', appName: 'League of Legends', icon: '🎮', date: '2025-11-18', minutesUsed: 75, category: 'game', limitMinutes: 90 },
+  { id: '15', appName: 'Spotify', icon: '🎵', date: '2025-11-18', minutesUsed: 55, category: 'other' }
 ];

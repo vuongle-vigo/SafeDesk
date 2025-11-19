@@ -8,6 +8,7 @@
 #include <ctime>
 #include <fstream>
 #include <windows.h>
+#include <shlobj.h>
 
 std::string GetCurrentDate() {
 	// Get current time
@@ -201,38 +202,54 @@ void CreateKillOnCloseJob()
 
 
 #include <wtsapi32.h>
+#include <userenv.h>
 #pragma comment(lib, "Wtsapi32.lib")
+#pragma comment(lib, "Userenv.lib")
 bool StartProcessInUserSession(const std::wstring& applicationPath) {
+	HANDLE hToken = NULL, hPrimaryToken = NULL;
 	DWORD sessionId = WTSGetActiveConsoleSessionId();
 	if (sessionId == 0xFFFFFFFF) return false;
 
-	HANDLE hToken;
 	if (!WTSQueryUserToken(sessionId, &hToken)) {
 		return false;
 	}
+
+	if (!DuplicateTokenEx(
+		hToken, MAXIMUM_ALLOWED, NULL,
+		SecurityIdentification, TokenPrimary, &hPrimaryToken))
+	{
+		CloseHandle(hToken);
+		return false;
+	}
+
+	PROFILEINFOW profile = { sizeof(profile) };
+	WCHAR userName[256];
+	DWORD nameLen = 256;
+	LPWSTR pUser = NULL;
+	DWORD bytes;
+	WTSQuerySessionInformationW(
+		WTS_CURRENT_SERVER_HANDLE, sessionId,
+		WTSUserName, &pUser, &bytes);
+
+	profile.lpUserName = pUser;
+	LoadUserProfileW(hPrimaryToken, &profile);
+	WTSFreeMemory(pUser);
+
+	LPVOID env = NULL;
+	CreateEnvironmentBlock(&env, hPrimaryToken, FALSE);
 
 	STARTUPINFOW si = { sizeof(si) };
 	PROCESS_INFORMATION pi;
 	si.lpDesktop = (LPWSTR)L"WinSta0\\Default";
 
 	BOOL success = CreateProcessAsUserW(
-		hToken, applicationPath.c_str(), NULL, NULL, NULL, FALSE,
-		NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi
+		hPrimaryToken, applicationPath.c_str(), NULL, NULL, NULL, FALSE,
+		CREATE_UNICODE_ENVIRONMENT, env, NULL, &si, &pi
 	);
 
 	CloseHandle(hToken);
 	if (!success) {
 		return false;
-	}
-
-	if (!AssignProcessToJobObject(gJob, pi.hProcess)) {
-		DWORD err = GetLastError();
-		LogToFile("AssignProcessToJobObject FAILED: " + std::to_string(err));
-		// Most common failures:
-		// 5 (Access Denied), 87 (Invalid Parameter), 740 (Elevation required)
-	}
-	else {
-		LogToFile("Child successfully assigned to job");
 	}
 
 	CloseHandle(pi.hProcess);
@@ -420,4 +437,48 @@ std::string Base64Encode(const BYTE* data, DWORD length)
 		&output[0], &outLen);
 
 	return output;
+}
+
+std::string CleanProcessPath(const std::string& input) {
+	// find lash '|'
+	size_t pos = input.rfind('|');
+	if (pos == std::string::npos)
+		return input;
+
+	std::string path = input.substr(pos + 1);
+
+	// Trim space
+	auto isSpaceOrControl = [](unsigned char c) {
+		return std::isspace(c) || std::iscntrl(c);
+		};
+
+	// Trim left
+	path.erase(path.begin(),
+		std::find_if(path.begin(), path.end(),
+			[&](unsigned char c) { return !isSpaceOrControl(c); }));
+
+	// Trim right
+	path.erase(
+		std::find_if(path.rbegin(), path.rend(),
+			[&](unsigned char c) { return !isSpaceOrControl(c); }).base(),
+		path.end()
+	);
+
+	return path;
+}
+
+
+std::wstring GetLocalAppDataPath()
+{
+	PWSTR rawPath = nullptr;
+	std::wstring result;
+
+	HRESULT hr = SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &rawPath);
+
+	if (SUCCEEDED(hr) && rawPath != nullptr) {
+		result = rawPath;       
+		CoTaskMemFree(rawPath); 
+	}
+
+	return result; 
 }

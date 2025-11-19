@@ -1,12 +1,17 @@
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Clock, AppWindow, Power, AlertTriangle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Clock, AppWindow, Power, AlertTriangle, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
-import { mockUsageByCategory, mockUsageByHour, mockUsageByDay, mockUsageByWeek, mockUsageByMonth, mockTopApps } from '../data/mockData';
+import { mockTopWebsites } from '../data/mockData';
 import DateRangePicker from '../components/DateRangePicker';
 import { mockAPI } from '../utils/api';
 
- interface DashboardProps {
+interface DateRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+interface DashboardProps {
   selectedDeviceId: string | null;
 }
 
@@ -18,9 +23,9 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     endDate: today,
   });
 
-  const [apiUsage, setApiUsage] = useState<any[] | null>(null); // null = not loaded, [] = loaded empty
+  const [apiUsage, setApiUsage] = useState<any[] | null>(null);
+  const [topApps, setTopApps] = useState<any[]>([]);
 
-  // helper to format date as YYYY-MM-DD for API path
   function formatDate(d: Date) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -32,10 +37,8 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     let mounted = true;
     async function loadUsage() {
       try {
-        // prefer selectedDeviceId passed from parent, otherwise fallback to localStorage/default
         const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
         const token = localStorage.getItem('token') || null;
-        // use YYYY-MM-DD format (no time) for API path
         const startDateStr = formatDate(dateRange.startDate);
         const endDateStr = formatDate(dateRange.endDate);
         const res = await mockAPI.getAgentPowerUsage(agentId, startDateStr, endDateStr, token);
@@ -43,7 +46,7 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
         if (res.success && Array.isArray(res.usage)) {
           setApiUsage(res.usage);
         } else {
-          setApiUsage([]); // treat as loaded but empty
+          setApiUsage([]);
         }
       } catch (err) {
         if (mounted) setApiUsage([]);
@@ -53,7 +56,45 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     return () => { mounted = false; };
   }, [dateRange, selectedDeviceId]);
 
-  // helper to generate array of YYYY-MM-DD between two dates (inclusive)
+  useEffect(() => {
+    let mounted = true;
+    async function loadTopApps() {
+      try {
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        // use the 7 most recent days ending at today (independent from datepicker)
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        const start = new Date(end);
+        start.setDate(start.getDate() - 6);
+        const startDateStr = formatDate(start);
+        const endDateStr = formatDate(end);
+        const res = await mockAPI.getAgentTopApplications(agentId, startDateStr, endDateStr, token);
+        if (!mounted) return;
+        if (res.success && Array.isArray(res.apps)) {
+          const apps = res.apps.map((a: any) => ({
+            appId: a.app_id ?? a.id ?? a.appId,
+            name: a.app_name ?? a.name ?? 'Unknown',
+            minutes: Math.round(Number(a.total_usage ?? a.usage_minutes ?? a.minutes ?? 0)),
+          }));
+          const maxMinutes = apps.length ? Math.max(...apps.map((x: any) => x.minutes || 0), 0) : 0;
+          const appsWithMeta = apps.map((a: any) => ({
+            ...a,
+            percentage: maxMinutes ? (a.minutes / maxMinutes) * 100 : 0,
+            time: formatMinutesToLabel(a.minutes),
+          }));
+          setTopApps(appsWithMeta);
+        } else {
+          setTopApps([]);
+        }
+      } catch (err) {
+        if (mounted) setTopApps([]);
+      }
+    }
+    loadTopApps();
+    return () => { mounted = false; };
+  }, [selectedDeviceId]); // no longer depends on dateRange; uses today's date
+
   function getDatesBetween(start: Date, end: Date) {
     const arr: string[] = [];
     const cur = new Date(start);
@@ -81,24 +122,34 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     }
   }, [dateRange]);
 
-  // map API usage to chart format; fallback to mock data when apiUsage is null or empty
   const chartData = useMemo(() => {
+    const buildEmpty = () => {
+      if (granularity === 'hour') {
+        return Array.from({ length: 24 }, (_, i) => ({ hour: String(i), minutes: 0 }));
+      }
+      if (granularity === 'week') {
+        const dates = getDatesBetween(dateRange.startDate, dateRange.endDate);
+        const weeks = Array.from(new Set(dates.map((d) => {
+          const dt = new Date(d);
+          return `${dt.getFullYear()}-W${getWeekNumber(dt)}`;
+        })));
+        return weeks.map((w) => ({ week: w, minutes: 0 })).sort((a: any, b: any) => a.week.localeCompare(b.week));
+      }
+      return getDatesBetween(dateRange.startDate, dateRange.endDate).map((d) => ({ day: d, minutes: 0 }));
+    };
+
     if (apiUsage === null) {
-      // still loading -> show mock
-      if (granularity === 'hour') return mockUsageByHour;
-      if (granularity === 'week') return mockUsageByWeek;
-      return mockUsageByDay;
+      return buildEmpty();
     }
+
     if (Array.isArray(apiUsage) && apiUsage.length > 0) {
-      // normalize apiUsage entries: expect { date: 'YYYY-MM-DD', hour: number, usage_minutes: number }
       const normalized = apiUsage.map((it: any) => ({
         date: it.date,
         hour: typeof it.hour === 'number' ? it.hour : (it.hour ? Number(it.hour) : undefined),
-        minutes: Number(it.usage_minutes ?? it.usage_minutes ?? it.minutes ?? 0)
+        minutes: Number(it.usage_minutes ?? it.minutes ?? 0)
       }));
 
       if (granularity === 'hour') {
-        // assume single-day selection (start == end). Build hours 0..23
         const targetDate = formatDate(dateRange.startDate);
         const hours = Array.from({ length: 24 }, (_, i) => i);
         return hours.map((h) => {
@@ -108,7 +159,6 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
       }
 
       if (granularity === 'day') {
-        // build list of days in range and sum minutes per day
         const dates = getDatesBetween(dateRange.startDate, dateRange.endDate);
         return dates.map((d) => {
           const total = normalized
@@ -119,7 +169,6 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
       }
 
       if (granularity === 'week') {
-        // group by week number (YYYY-W{num}) across the normalized entries
         const groups = new Map<string, number>();
         for (const it of normalized) {
           if (!it.date) continue;
@@ -129,19 +178,14 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
           })();
           groups.set(wk, (groups.get(wk) || 0) + (it.minutes || 0));
         }
-        // convert to array sorted by week label
         return Array.from(groups.entries())
           .map(([week, minutes]) => ({ week, minutes }))
           .sort((a: any, b: any) => a.week.localeCompare(b.week));
       }
     }
-     // loaded but empty -> fall back to mock (so chart still shows something)
-     if (granularity === 'hour') return mockUsageByHour;
-     if (granularity === 'week') return mockUsageByWeek;
-     return mockUsageByDay;
-   }, [apiUsage, granularity, dateRange]);
+    return buildEmpty();
+  }, [apiUsage, granularity, dateRange]);
 
-  // helper to compute week number (used as fallback label)
   function getWeekNumber(d: Date) {
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     const dayNum = date.getUTCDay() || 7;
@@ -150,8 +194,28 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     return Math.ceil((((date as any) - (yearStart as any)) / 86400000 + 1) / 7);
   }
 
+  const totalMinutesToday = useMemo<number | null>(() => {
+    if (apiUsage === null) return null;
+    const today = new Date();
+    const todayStr = formatDate(today);
+    if (!Array.isArray(apiUsage) || apiUsage.length === 0) return 0;
+    return apiUsage.reduce((sum: number, it: any) => {
+      const date = it?.date;
+      const minutes = Number(it?.usage_minutes ?? it?.minutes ?? 0);
+      return sum + (date === todayStr ? minutes : 0);
+    }, 0);
+  }, [apiUsage]);
+
+  function formatMinutesToLabel(totalMin: number | null) {
+    if (totalMin === null) return 'Đang tải';
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
   const stats = [
-    { label: 'Thời gian hôm nay', value: '6h 42m', icon: Clock, color: 'blue' },
+    { label: 'Thời gian hôm nay', value: formatMinutesToLabel(totalMinutesToday), icon: Clock, color: 'blue' },
     { label: 'Ứng dụng đang chạy', value: '12', icon: AppWindow, color: 'green' },
     { label: 'Hoạt động lần cuối', value: '2 phút trước', icon: Power, color: 'purple' }
   ];
@@ -204,42 +268,80 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
         </div>
       </div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
+      >
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 md:mb-6">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900">{chartTitle}</h3>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData}>
+            <XAxis dataKey={xAxisKey} stroke="#9CA3AF" style={{ fontSize: '12px' }} />
+            <YAxis stroke="#9CA3AF" style={{ fontSize: '12px' }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
+              cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+            />
+            <Bar dataKey="minutes" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </motion.div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.3 }}
           className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
         >
-          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-6">Thời gian theo danh mục</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={mockUsageByCategory}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {mockUsageByCategory.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-3 md:gap-4 mt-4">
-            {mockUsageByCategory.map((cat) => (
-              <div key={cat.name} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }}></div>
-                <div className="text-xs md:text-sm min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{cat.name}</p>
-                  <p className="text-gray-500">{cat.value} phút</p>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center gap-2 mb-4 md:mb-6">
+            <AppWindow className="w-5 h-5 text-blue-600" />
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">Top ứng dụng sử dụng nhiều nhất</h3>
+          </div>
+          <div className="space-y-3">
+            {topApps.slice(0, 6).map((app, index) => {
+              const maxPercentage = Math.max(...topApps.map(a => a.percentage || 0), 0);
+              const normalizedWidth = maxPercentage ? (app.percentage / maxPercentage) * 100 : 0;
+
+              return (
+                <motion.div
+                  key={app.name}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + index * 0.06 }}
+                  className="flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium text-gray-900 text-sm truncate">{app.name}</p>
+                      <p className="text-xs font-semibold text-gray-600 ml-2">{app.time}</p>
+                    </div>
+                    <div className="relative w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${normalizedWidth}%` }}
+                        transition={{ delay: 0.5 + index * 0.06, duration: 0.7, ease: "easeOut" }}
+                        className={`h-full rounded-full ${
+                          index === 0 ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                          index === 1 ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                          index === 2 ? 'bg-gradient-to-r from-purple-500 to-purple-600' :
+                          index === 3 ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
+                          index === 4 ? 'bg-gradient-to-r from-pink-500 to-pink-600' :
+                          'bg-gradient-to-r from-teal-500 to-teal-600'
+                        }`}
+                      ></motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
 
@@ -249,55 +351,53 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
           transition={{ delay: 0.3 }}
           className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 md:mb-6">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900">{chartTitle}</h3>
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <div className="flex items-center gap-2 mb-4 md:mb-6">
+            <Globe className="w-5 h-5 text-green-600" />
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">Top website được truy cập</h3>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={chartData}>
-              <XAxis dataKey={xAxisKey} stroke="#9CA3AF" style={{ fontSize: '12px' }} />
-              <YAxis stroke="#9CA3AF" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
-                cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
-              />
-              <Bar dataKey="minutes" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="space-y-3">
+            {mockTopWebsites.slice(0, 6).map((site, index) => {
+              const maxPercentage = Math.max(...mockTopWebsites.map(s => s.percentage));
+              const normalizedWidth = (site.percentage / maxPercentage) * 100;
+
+              return (
+                <motion.div
+                  key={site.name}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + index * 0.06 }}
+                  className="flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium text-gray-900 text-sm truncate">{site.name}</p>
+                      <p className="text-xs font-semibold text-gray-600 ml-2">{site.time}</p>
+                    </div>
+                    <div className="relative w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${normalizedWidth}%` }}
+                        transition={{ delay: 0.5 + index * 0.06, duration: 0.7, ease: "easeOut" }}
+                        className={`h-full rounded-full ${
+                          index === 0 ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                          index === 1 ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
+                          index === 2 ? 'bg-gradient-to-r from-teal-500 to-teal-600' :
+                          index === 3 ? 'bg-gradient-to-r from-cyan-500 to-cyan-600' :
+                          index === 4 ? 'bg-gradient-to-r from-sky-500 to-sky-600' :
+                          'bg-gradient-to-r from-blue-500 to-blue-600'
+                        }`}
+                      ></motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
         </motion.div>
       </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-white rounded-xl p-6 border border-gray-200"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 ứng dụng</h3>
-        <div className="space-y-4">
-          {mockTopApps.map((app, index) => (
-            <div key={app.name} className="flex items-center gap-4">
-              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 font-medium text-sm">
-                {index + 1}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium text-gray-900">{app.name}</p>
-                  <p className="text-sm text-gray-500">{app.time}</p>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${app.percentage}%` }}
-                    transition={{ delay: 0.5 + index * 0.1, duration: 0.6 }}
-                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600"
-                  ></motion.div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
     </div>
   );
 }

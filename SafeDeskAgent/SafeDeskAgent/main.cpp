@@ -8,6 +8,7 @@
 #include "Communication.h"
 #include <thread>
 #include "Common.h"
+#include "CaptureScreen.h"
 
 // Global for service variable
 SERVICE_STATUS g_ServiceStatus = { 0 };

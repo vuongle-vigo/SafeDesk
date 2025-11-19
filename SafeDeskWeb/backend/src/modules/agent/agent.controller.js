@@ -49,28 +49,4 @@ async function getAgentStatus(req, res) {
 
 
 
-
-async function addProcessUsage(req, res){
-    try {
-        const agentId = req.headers['x-agent-id'];
-        const agentToken = req.headers['x-agent-token'];
-        const processUsageData = req.body;
-        if (!agentId || !agentToken) {
-            return res.status(401).json({ error: 'Agent authentication required' });
-        }
-
-        if (!processUsageData) {
-            return res.status(400).json({ error: 'Process usage data is required' });
-        }
-        
-        const data = await agentService.addProcessUsage(agentId, processUsageData);
-        return res.json({
-            message: 'Process usage data sent successfully',
-            serverResponse: data.serverResponse
-        });
-    } catch (error) {
-        return res.status(400).json({ error: error.message });
-    }
-};
-
-module.exports = { register, getAllAgents, addProcessUsage, getAgentStatus };
+module.exports = { register, getAllAgents, getAgentStatus };

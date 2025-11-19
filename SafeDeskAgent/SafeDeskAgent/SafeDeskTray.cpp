@@ -2,11 +2,13 @@
 #include "Common.h"
 #include <sddl.h>
 #include "ProcessMonitor.h"
+#include "BrowserHistory.h"
 #include <thread>
 
 #pragma comment(lib, "advapi32.lib")
 
 #define PRORCESS_LABLE L"PROCESS"
+#define APPDATA_LABEL L"APPDATA"
 
 SafeDeskTray::SafeDeskTray() {
 	m_hPipe = NULL;
@@ -44,7 +46,7 @@ void SafeDeskTray::ThreadCreateProcess() {
 
 bool SafeDeskTray::InitPipeServer() {
     std::thread threadCreateProcess(&SafeDeskTray::ThreadCreateProcess, this);
-
+	BrowserHistory& browserHistory = BrowserHistory::GetInstance();
     SECURITY_ATTRIBUTES sa;
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
     sa.bInheritHandle = FALSE;
@@ -146,11 +148,19 @@ bool SafeDeskTray::InitPipeServer() {
                         std::wstring data2 = message.substr(sep1 + 1, sep2 - sep1 - 1);
                         std::wstring data3 = message.substr(sep2 + 1);
 
+						std::string sProcessPath = std::string(data3.begin(), data3.end());
+
                         processMonitor.SetInfoProcess(
-                            std::string(data3.begin(), data3.end()),
+                            ToLowercase(CleanProcessPath(sProcessPath)),
                             data2
                         );
                     }
+				}
+                else if (data1 == APPDATA_LABEL) {
+                    // just get from sep 1, don't have sep2
+                    std::wstring data2 = message.substr(sep1 + 1);
+					browserHistory.SetAppDataPath(data2);
+					LogToFile("Set AppData path to: " + std::string(data2.begin(), data2.end()));
                 }
             }
         }

@@ -18,7 +18,7 @@ const mainMenuItems = [
 const deviceMenuItems = [
   { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
   { id: 'apps', label: 'Ứng dụng', icon: AppWindow },
-  { id: 'processes', label: 'Tiến trình', icon: Activity },
+  // { id: 'processes', label: 'Tiến trình', icon: Activity },
   { id: 'activity', label: 'Hoạt động', icon: Clock },
   { id: 'screenshots', label: 'Ảnh chụp', icon: Camera },
   { id: 'history', label: 'Lịch sử web', icon: Globe },

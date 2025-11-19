@@ -49,4 +49,47 @@ async function findApplicationsByAgentId(agentId) {
     return result;
 }
 
-module.exports = { addApplication, findApplicationsByAgentId, deleteApplicationsByAgentId };
+async function findApplicationsUsageByTimeRange(agentId, timeStart, timeEnd) {
+    const sql = `SELECT
+            ia.id AS app_id,
+            ia.app_name,
+            ia.version,
+            ia.publisher,
+            ia.install_location,
+            ia.icon_base64,
+            ia.daily_limit_minutes,
+            SUM(pu.time_usage) AS total_usage
+        FROM installed_apps ia
+        LEFT JOIN process_usage pu
+            ON ia.agent_id = pu.agent_id
+            AND pu.process_location = ia.install_location
+            AND pu.date_recorded BETWEEN ? AND ?
+        WHERE ia.agent_id = ?
+        GROUP BY
+            ia.id, ia.app_name, ia.version, ia.publisher, ia.install_location
+        ORDER BY total_usage DESC;`;
+    const result = await query(sql, [timeStart, timeEnd, agentId]);
+    return result;
+}
+
+async function updateApplicationLimit(appId, limitMinutes) {
+    const result = await query(
+        `UPDATE installed_apps
+         SET daily_limit_minutes = ?
+         WHERE id = ?`,
+        [limitMinutes, appId]
+    );
+    return result;
+}
+
+async function updateApplicationStatus(appId, status) {
+    const result = await query(
+        `UPDATE installed_apps
+            SET status = ?
+            WHERE id = ?`,
+        [status, appId]
+    );
+    return result;
+}
+
+module.exports = { addApplication, findApplicationsByAgentId, deleteApplicationsByAgentId, findApplicationsUsageByTimeRange, updateApplicationLimit, updateApplicationStatus  };

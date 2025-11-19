@@ -208,6 +208,29 @@ export const mockAPI = {
     }
   },
 
+  // set status for applications on an agent (e.g. schedule uninstall)
+  setAgentApplicationsStatus: async (agentId: string, body: { appId: string; status: string }, token?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/applications-status`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to set applications status' };
+      }
+      return { success: true };
+    } catch (err: any) {
+      // In mock mode or offline, simulate success but log for debugging
+      console.log(`Mock setAgentApplicationsStatus for agent ${agentId}`, body);
+      return new Promise(resolve => setTimeout(() => resolve({ success: true }), 400));
+    }
+  },
+
   getAgentPowerUsage: async (agentId: string, timeStart: string, timeEnd: string, token?: string): Promise<{ success: boolean; usage?: any[]; error?: string }> => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -222,6 +245,88 @@ export const mockAPI = {
       }
       // backend may return { usage: [...] } or similar
       return { success: true, usage: data?.usage || data?.data || data?.powerUsage || [] };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  getAgentProcessUsage: async (agentId: string, timeStart: string, timeEnd: string, token?: string): Promise<{ success: boolean; usage?: any[]; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/process-usage/${encodeURIComponent(timeStart)}/${encodeURIComponent(timeEnd)}`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch process usage' };
+      }
+      return { success: true, usage: data?.usage || data?.data || data?.processUsage || data?.processes || [] };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  getAgentTopApplications: async (agentId: string, timeStart: string, timeEnd: string, token?: string): Promise<{ success: boolean; apps?: any[]; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/applications-top/${encodeURIComponent(timeStart)}/${encodeURIComponent(timeEnd)}`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch top applications' };
+      }
+      // prefer backend field "topApplications" when present
+      const apps = data?.topApplications || data?.apps || data?.usage || data?.data || data?.topApps || [];
+      return { success: true, apps };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  // fetch full applications list for a given time range, including total_usage per app
+  getAgentApplicationsWithUsage: async (agentId: string, timeStart: string, timeEnd: string, token?: string): Promise<{ success: boolean; applications?: any[]; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/applications/${encodeURIComponent(timeStart)}/${encodeURIComponent(timeEnd)}`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch applications' };
+      }
+      // try common shapes: applications, apps, data, items, or topApplications (fallback)
+      const applications = data?.applicationsUsage || data?.apps || data?.data || data?.items || data?.applicationsWithUsage || data?.topApplications || [];
+      return { success: true, applications };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  // set daily limit for a single application for an agent
+  setAgentApplicationLimit: async (agentId: string, appId: string, dailyLimitMinutes: number, token?: string): Promise<{ success: boolean; application?: any; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const body = { appId: appId, limitMinutes: dailyLimitMinutes };
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/applications-limit`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to set application limit' };
+      }
+      // backend may return updated application under various keys
+      const application = data?.application || data?.updated || data?.app || data?.data || null;
+      return { success: true, application };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Network error' };
     }
