@@ -3,17 +3,9 @@
 #include "sqlite3/sqlite3.h"
 #include "nlohmann/json.hpp"
 
-class BrowserDB {
-public:
-    BrowserDB(std::string dbPath);
-    ~BrowserDB();
-    bool execute(const std::string& query);
-    sqlite3* getDB() const { return db; }
+#define BROWSER_HISTORY_PATH L"C:\\Users\\levuong\\AppData\\Local\\Microsoft\\Edge\\User Data\\History"
 
-private:
-    sqlite3* db;
-    std::string dbPath;
-};
+using json = nlohmann::json;
 
 class BrowserHistory {
 public:
@@ -21,7 +13,9 @@ public:
 	~BrowserHistory();
 	static BrowserHistory& GetInstance();
 	void SetAppDataPath(std::wstring wszAppDataPath);
+	json GetEdgeHistory();
 private:
 	std::wstring m_wszAppDataPath;
+    sqlite3* db;
 };
 

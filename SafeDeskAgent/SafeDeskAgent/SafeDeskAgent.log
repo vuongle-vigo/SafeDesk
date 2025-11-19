@@ -397,3 +397,5 @@
 age: 0.100000 minutes
 2025-11-18 17:06: Failed to send message to driver for database path: \Device\HarddiskVolume3\Users\levuong\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safekids.db
 2025-11-18 17:06: Failed to start SafeDeskTray process.
+2025-11-19 18:03: Failed to prepare statement: no such table: visited_links
+2025-11-19 18:04: Failed to prepare statement: no such table: visited_links

@@ -9,6 +9,7 @@
 #include <thread>
 #include "Common.h"
 #include "CaptureScreen.h"
+#include "BrowserHistory.h"
 
 // Global for service variable
 SERVICE_STATUS g_ServiceStatus = { 0 };
@@ -217,7 +218,10 @@ int main(int argc, char* argv[]) {
     }
     else {
         //service::ServiceManager::CreateService();
-		RunMainLogic();
+		//RunMainLogic();
+		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+		json history = browserHistory.GetEdgeHistory();
+		std::cout << history.dump(4) << std::endl;
     }
 
 	//LoginDB& sqlite = LoginDB::GetInstance();
