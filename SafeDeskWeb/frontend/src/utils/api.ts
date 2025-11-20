@@ -281,13 +281,13 @@ export const mockAPI = {
     }
   },
 
-  // Lấy danh sách screenshots cho agent
+  // Lấy danh sách screenshots cho agent (mới: dùng /capture-screen)
   getScreenshots: async (agentId: string, limit = 50, token?: string): Promise<{ success: boolean; screenshots?: any[]; error?: string }> => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/screenshots?limit=${encodeURIComponent(String(limit))}`, {
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/capture-screen?limit=${encodeURIComponent(String(limit))}`, {
         method: 'GET',
         headers
       });
@@ -295,9 +295,75 @@ export const mockAPI = {
       if (!res.ok) {
         return { success: false, error: data?.error || data?.message || 'Failed to fetch screenshots' };
       }
-      return { success: true, screenshots: data?.screenshots || data?.items || data || [] };
+
+      // normalize many possible shapes into items array
+      const rawItems = Array.isArray(data) ? data : data?.screenshots || data?.items || data?.data || [];
+      const normalized = (rawItems || []).map((it: any) => {
+        const filePath = it.file_path || it.path || it.filePath || null;
+        let url = it.url || it.screenshot_url || it.capture_url || null;
+        if (!url && filePath && typeof filePath === 'string') {
+          const base = String(BASE_URL || '').replace(/\/$/, '');
+          // If backend stores files under backend/src/data/screenshots, they are commonly served under /data/screenshots.
+          // Map "/screenshots/..." -> "${BASE_URL}/data/screenshots/..." so the image src resolves to the served file.
+          if (filePath.startsWith('/screenshots')) {
+            url = `${base}/data${filePath}`;
+          } else {
+            url = filePath.startsWith('http') ? filePath : `${base}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
+          }
+        }
+        return {
+          ...it,
+          id: it.id ?? it.screenshot_id ?? it.capture_id,
+          url,
+          timestamp: it.created_at ?? it.createdAt ?? it.timestamp ?? it.time ?? null
+        };
+      });
+
+      return { success: true, screenshots: normalized };
     } catch (err: any) {
       console.log(`Mock getScreenshots for agent ${agentId}`);
+      return { success: true, screenshots: [] };
+    }
+  },
+
+  // Lấy screenshots cho agent trong khoảng thời gian (timeStart, timeEnd)
+  getScreenshotsByTimeRange: async (agentId: string, timeStart: string, timeEnd: string, token?: string): Promise<{ success: boolean; screenshots?: any[]; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/capture-screen/${encodeURIComponent(timeStart)}/${encodeURIComponent(timeEnd)}`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch screenshots by time range' };
+      }
+
+      const rawItems = Array.isArray(data) ? data : data?.screenshots || data?.items || data?.data || [];
+      const normalized = (rawItems || []).map((it: any) => {
+        const filePath = it.file_path || it.path || it.filePath || null;
+        let url = it.url || it.screenshot_url || it.capture_url || null;
+        if (!url && filePath && typeof filePath === 'string') {
+          const base = String(BASE_URL || '').replace(/\/$/, '');
+          if (filePath.startsWith('/screenshots')) {
+            url = `${base}/data${filePath}`;
+          } else {
+            url = filePath.startsWith('http') ? filePath : `${base}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
+          }
+        }
+        return {
+          ...it,
+          id: it.id ?? it.screenshot_id ?? it.capture_id,
+          url,
+          timestamp: it.created_at ?? it.createdAt ?? it.timestamp ?? it.time ?? null
+        };
+      });
+
+      return { success: true, screenshots: normalized };
+    } catch (err: any) {
+      console.log(`Mock getScreenshotsByTimeRange for agent ${agentId} (${timeStart} - ${timeEnd})`);
       return { success: true, screenshots: [] };
     }
   },
@@ -400,6 +466,104 @@ export const mockAPI = {
       return { success: true, application };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  // New: specifically call GET /api/agents/:agentId/status and return simplified shape
+  getAgentOnlineStatus: async (agentId: string, token?: string): Promise<{ success: boolean; data?: { online?: boolean; lastSeen?: string; status?: any; raw?: any; message?: string }; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/status`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch agent online status' };
+      }
+
+      const raw = data ?? null;
+      const out: any = { raw };
+
+      // If backend returns { agentId, status: ... } then status may be "online" or a timestamp
+      const candidate = raw && typeof raw === 'object' && raw.status !== undefined ? raw.status : raw;
+
+      // handle primitive string/number candidate first
+      if (typeof candidate === 'string') {
+        out.status = candidate;
+        const s = candidate.toLowerCase();
+        if (s === 'online' || s === 'offline') {
+          out.online = s === 'online';
+        } else if (!isNaN(Date.parse(candidate))) {
+          out.lastSeen = new Date(candidate).toISOString();
+        } else if (!isNaN(Number(candidate))) {
+          const n = Number(candidate);
+          out.lastSeen = (n > 1e12 ? new Date(n).toISOString() : new Date(n * 1000).toISOString());
+        } else {
+          out.message = candidate;
+        }
+      } else if (typeof candidate === 'number') {
+        out.status = candidate;
+        const n = candidate;
+        out.lastSeen = (n > 1e12 ? new Date(n).toISOString() : new Date(n * 1000).toISOString());
+      } else if (raw && typeof raw === 'object') {
+        // object case: try common fields
+        out.status = raw.status ?? raw.state ?? null;
+
+        if (typeof raw.online === 'boolean') {
+          out.online = raw.online;
+        } else if (typeof raw.status === 'string') {
+          const s = String(raw.status).toLowerCase();
+          if (s === 'online' || s === 'offline') out.online = s === 'online';
+          else if (!isNaN(Date.parse(raw.status))) out.lastSeen = new Date(raw.status).toISOString();
+          else if (!isNaN(Number(raw.status))) {
+            const n = Number(raw.status);
+            out.lastSeen = (n > 1e12 ? new Date(n).toISOString() : new Date(n * 1000).toISOString());
+          }
+        }
+
+        const last = raw.lastSeen ?? raw.last_seen ?? raw.last_active ?? raw.lastActive ?? raw.timestamp ?? raw.time ?? null;
+        if (last != null) {
+          if (typeof last === 'number') {
+            out.lastSeen = (last > 1e12 ? new Date(last).toISOString() : new Date(last * 1000).toISOString());
+          } else if (typeof last === 'string' && !isNaN(Date.parse(last))) {
+            out.lastSeen = new Date(last).toISOString();
+          } else {
+            out.lastSeenRaw = last;
+          }
+        }
+
+        if (raw.message) out.message = raw.message;
+      }
+
+      return { success: true, data: out };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  // New: delete a screenshot by id (attempt real DELETE, fallback to mock success)
+  deleteScreenshot: async (agentId: string, screenshotId: string | number, token?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/capture-screen/${encodeURIComponent(String(screenshotId))}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to delete screenshot' };
+      }
+      return { success: true };
+    } catch (err: any) {
+      // mock/offline fallback: simulate deletion
+      console.log(`Mock deleteScreenshot for agent ${agentId} id=${screenshotId}`);
+      return new Promise(resolve => setTimeout(() => resolve({ success: true }), 300));
     }
   }
 };

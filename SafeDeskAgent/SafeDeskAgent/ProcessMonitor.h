@@ -18,7 +18,7 @@ public:
 	void MonitorProcessUsage();
 	bool CheckBlockApp(std::string& sProcessPath);
 	void ListRunningProcesses();
-	BOOL StopProcess(std::string& sProcessName);
+	BOOL StopProcess(const std::wstring sProcessName);
 	std::string GetProcessPath(DWORD dwProcessId);
 	bool SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle);
 	bool CheckProcessIsRunning(std::wstring wsProcessName);

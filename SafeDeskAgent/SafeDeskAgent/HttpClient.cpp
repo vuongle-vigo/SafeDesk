@@ -145,6 +145,58 @@ bool HttpClient::PostProcessUsage(json data) {
 	}
 	return true;
 }
+#include <fstream>
+
+bool HttpClient::PostFileScreenshot(const std::string& sFilePath, int command_id) {
+	Config& cfg = Config::GetInstance();
+	Client m_client(cfg.GetHost(), cfg.GetPort());
+
+	// Read file to buffer (binary)
+	std::ifstream file(sFilePath, std::ios::binary);
+	if (!file.is_open()) {
+		std::cerr << "Failed to open file: " << sFilePath << std::endl;
+		return false;
+	}
+
+	std::vector<char> fileContent((std::istreambuf_iterator<char>(file)),
+		std::istreambuf_iterator<char>());
+	file.close();
+
+	// Create boundary
+	std::string boundary = "----SafedeskBoundary" + std::to_string(rand());
+
+	// Build multipart body
+	std::string body;
+	body.reserve(fileContent.size() + 512);
+
+	body += "--" + boundary + "\r\n";
+	body += "Content-Disposition: form-data; name=\"file\"; filename=\"screen.jpg\"\r\n";
+	body += "Content-Type: image/jpeg\r\n\r\n";
+	body.append(fileContent.begin(), fileContent.end());
+	body += "\r\n--" + boundary + "--\r\n";
+
+	// Headers
+	Headers headers = m_headers;
+	headers.insert({ "x-command-id", std::to_string(command_id)});
+	headers.emplace("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+	// Send request
+	auto response = m_client.Post(API_SCREENSHOT_POST, headers, body, "multipart/form-data");
+
+	if (!response) {
+		std::cerr << "No response from server." << std::endl;
+		return false;
+	}
+
+	if (response->status == 200) {
+		std::cout << "Response: " << response->body << std::endl;
+		return true;
+	}
+
+	std::cerr << "Request failed: " << response->status << " - " << response->body << std::endl;
+	return false;
+}
+
 
 bool HttpClient::PostApplication(json data) {
 	Config& cfg = Config::GetInstance();

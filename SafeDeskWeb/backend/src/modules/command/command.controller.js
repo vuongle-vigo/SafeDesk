@@ -1,4 +1,5 @@
 const commandService = require('./command.service');
+const agentService = require('../agent/agent.service');
 
 async function pollCommands(req, res) {
     try {
@@ -23,6 +24,12 @@ async function createCommand(req, res) {
         if (!commandType) {
             return res.status(400).json({ error: 'Command type is required' });
         }
+
+        const status = await agentService.checkAgentOnlineStatus(agentId);
+        if (status !== 'online') {
+            return res.status(400).json({ error: 'Agent is offline.' });
+        }
+
         const data = await commandService.addCommand(agentId, commandType, commandParams);
         return res.json({
             message: 'Command added successfully',

@@ -1,4 +1,4 @@
-import { Monitor, Laptop, Tablet, Plus, Settings as SettingsIcon, Trash2 } from 'lucide-react';
+import { Monitor, Laptop, Tablet, Plus, Settings as SettingsIcon, Trash2, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Device } from '../types';
@@ -33,6 +33,7 @@ const statusLabels = {
 export default function Devices({ devices, selectedDeviceId, onSelectDevice, onRemoveDevice }: DevicesProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hoveredDeviceId, setHoveredDeviceId] = useState<string | null>(null);
+  const [uninstallingId, setUninstallingId] = useState<string | null>(null);
 
   // map agent_id -> status
   const [agentStatuses, setAgentStatuses] = useState<Record<string, string>>({});
@@ -43,7 +44,7 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
       guid: string;
       os: string;
       hostname: string;
-      created_at: string;
+      last_activity: string;
       status?: string;
     }[]
   >([]);
@@ -119,7 +120,7 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
       name: a.hostname || a.agent_id,
       os: a.os,
       ipAddress: '—',
-      lastActive: a.created_at,
+      lastActive: a.last_activity,
       type: 'desktop',
       // take live status from agentStatuses if available
       status: agentStatuses[a.agent_id] || a.status || 'offline',
@@ -208,14 +209,39 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`Bạn có chắc muốn gỡ thiết bị "${device.name}"?`)) {
-                          onRemoveDevice?.(device.id);
-                        }
+                        // trigger self-uninstall command instead of immediate local removal
+                        const doUninstall = async () => {
+                          if (!window.confirm(`Bạn có chắc muốn gỡ cài đặt (self_uninstall) trên thiết bị "${device.name}"?`)) return;
+                          try {
+                            setUninstallingId(device.id);
+                            const token = localStorage.getItem('token') || null;
+                            const res = await mockAPI.createAgentCommand(device.id, { commandType: 'self_uninstall', commandParams: {} }, token || undefined);
+                            if (res.success) {
+                              window.alert('Lệnh gỡ cài đặt đã được gửi tới agent.');
+                              // optional: call onRemoveDevice if you want to remove from UI immediately
+                              // onRemoveDevice?.(device.id);
+                            } else {
+                              window.alert('Không thể gửi lệnh: ' + (res.error || 'Unknown error'));
+                            }
+                          } catch (err) {
+                            console.error('Error sending uninstall command:', err);
+                            window.alert('Lỗi khi gửi lệnh gỡ cài đặt');
+                          } finally {
+                            setUninstallingId(null);
+                          }
+                        };
+                        void doUninstall();
                       }}
                       className="py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Gỡ bỏ</span>
+                      {uninstallingId === device.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Gỡ cài đặt</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </motion.div>

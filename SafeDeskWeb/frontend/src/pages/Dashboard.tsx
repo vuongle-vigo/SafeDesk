@@ -25,6 +25,7 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
 
   const [apiUsage, setApiUsage] = useState<any[] | null>(null);
   const [topApps, setTopApps] = useState<any[]>([]);
+  const [agentStatus, setAgentStatus] = useState<any | null>(null); // <-- new state
 
   function formatDate(d: Date) {
     const y = d.getFullYear();
@@ -94,6 +95,102 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     loadTopApps();
     return () => { mounted = false; };
   }, [selectedDeviceId]); // no longer depends on dateRange; uses today's date
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadAgentStatus() {
+      try {
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        // use the new API that targets GET /api/agents/:agentId/status
+        const res = await mockAPI.getAgentOnlineStatus(agentId, token);
+        if (!mounted) return;
+        if (res.success) {
+          // normalize to previous agentStatus usage (object with online/lastSeen/raw/message)
+          setAgentStatus(res.data || null);
+        } else {
+          setAgentStatus({ online: false, message: res.error || 'Không có dữ liệu' });
+        }
+      } catch (err) {
+        if (mounted) setAgentStatus({ online: false, message: 'Không có dữ liệu' });
+      }
+    }
+    loadAgentStatus();
+    return () => { mounted = false; };
+  }, [selectedDeviceId]);
+
+  function formatLastActivity(statusObj: any) {
+    if (!statusObj) return 'Đang tải';
+
+    // if normalized object contains direct status field (from backend { agentId, status })
+    const candidateStatus = statusObj.status ?? statusObj.raw?.status ?? statusObj.raw ?? null;
+    if (candidateStatus != null && (typeof candidateStatus === 'string' || typeof candidateStatus === 'number')) {
+      // reuse existing logic for primitive status
+      if (typeof candidateStatus === 'string') {
+        const s = String(candidateStatus).toLowerCase();
+        if (s === 'online') return 'Online';
+        if (s === 'offline') return 'Offline';
+        if (!isNaN(Date.parse(candidateStatus))) {
+          const parsed = Date.parse(candidateStatus);
+          const diffMin = Math.floor((Date.now() - parsed) / 60000);
+          if (diffMin <= 0) return 'Vừa xong';
+          if (diffMin < 60) return `${diffMin} phút trước`;
+          const hrs = Math.floor(diffMin / 60);
+          if (hrs < 24) return `${hrs} giờ trước`;
+          const days = Math.floor(hrs / 24);
+          return `${days} ngày trước`;
+        }
+      } else if (typeof candidateStatus === 'number') {
+        const n = candidateStatus;
+        const t = (n > 1e12 ? n : n * 1000);
+        const diffMin = Math.floor((Date.now() - t) / 60000);
+        if (diffMin <= 0) return 'Vừa xong';
+        if (diffMin < 60) return `${diffMin} phút trước`;
+        const hrs = Math.floor(diffMin / 60);
+        if (hrs < 24) return `${hrs} giờ trước`;
+        const days = Math.floor(hrs / 24);
+        return `${days} ngày trước`;
+      }
+    }
+
+    // If API returned normalized object (from getAgentOnlineStatus)
+    if (typeof statusObj === 'object') {
+      if (statusObj.online === true) return 'Online';
+      if (statusObj.online === false) {
+        if (statusObj.lastSeen) {
+          const last = new Date(statusObj.lastSeen);
+          if (!isNaN(last.getTime())) {
+            const diffMin = Math.floor((Date.now() - last.getTime()) / 60000);
+            if (diffMin <= 0) return 'Vừa xong';
+            if (diffMin < 60) return `${diffMin} phút trước`;
+            const hrs = Math.floor(diffMin / 60);
+            if (hrs < 24) return `${hrs} giờ trước`;
+            const days = Math.floor(hrs / 24);
+            return `${days} ngày trước`;
+          }
+        }
+        return 'Offline';
+      }
+
+      if (statusObj.lastSeen) {
+        const last = new Date(statusObj.lastSeen);
+        if (!isNaN(last.getTime())) {
+          const diffMin = Math.floor((Date.now() - last.getTime()) / 60000);
+          if (diffMin <= 0) return 'Vừa xong';
+          if (diffMin < 60) return `${diffMin} phút trước`;
+          const hrs = Math.floor(diffMin / 60);
+          if (hrs < 24) return `${hrs} giờ trước`;
+          const days = Math.floor(hrs / 24);
+          return `${days} ngày trước`;
+        }
+      }
+
+      if (statusObj.message) return String(statusObj.message);
+      return 'Không có dữ liệu';
+    }
+
+    return 'Không có dữ liệu';
+  }
 
   function getDatesBetween(start: Date, end: Date) {
     const arr: string[] = [];
@@ -217,7 +314,7 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
   const stats = [
     { label: 'Thời gian hôm nay', value: formatMinutesToLabel(totalMinutesToday), icon: Clock, color: 'blue' },
     { label: 'Ứng dụng đang chạy', value: '12', icon: AppWindow, color: 'green' },
-    { label: 'Hoạt động lần cuối', value: '2 phút trước', icon: Power, color: 'purple' }
+    { label: 'Hoạt động lần cuối', value: formatLastActivity(agentStatus), icon: Power, color: 'purple' }
   ];
 
   return (

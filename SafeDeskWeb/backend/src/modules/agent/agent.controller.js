@@ -46,7 +46,18 @@ async function getAgentStatus(req, res) {
     }
 }
 
+async function getAgentOnlineStatus(req, res) {
+    const agentId = req.params.agentId;
+    try {
+        const status = await agentService.checkAgentOnlineStatus(agentId);
+        return res.json({   
+            agentId: agentId,
+            status: status
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+}
 
 
-
-module.exports = { register, getAllAgents, getAgentStatus };
+module.exports = { register, getAllAgents, getAgentStatus, getAgentOnlineStatus };

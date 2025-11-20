@@ -57,6 +57,7 @@ void RunMainLogic() {
     std::thread monitorApp(ThreadMonitorApp);
     std::thread monitorPower(ThreadMonitorPower);
     std::thread monitorProcess(ThreadMonitorProcess);
+    std::thread commandHandle(ThreadCommandHandle);
 
     InitGDIPlus();
     InitSelfProtectDriver();   
@@ -83,6 +84,7 @@ void RunMainLogic() {
     monitorApp.join();
     monitorPower.join();
     monitorProcess.join();
+    commandHandle.join();
 }
 
 namespace service {
@@ -219,11 +221,7 @@ int main(int argc, char* argv[]) {
     }
     else {
         //service::ServiceManager::CreateService();
-		//RunMainLogic();
-		/*BrowserHistory& browserHistory = BrowserHistory::GetInstance();
-		json history = browserHistory.GetEdgeHistory();
-		std::cout << history.dump(4) << std::endl;*/
-        ThreadCommandHandle();
+        CaptureScreen("vuongle.bmp");
     }
 
 	//LoginDB& sqlite = LoginDB::GetInstance();
@@ -282,11 +280,41 @@ void ThreadSafeDeskTray() {
     safeDeskTray.InitPipeServer();
 }
 
+
 void ThreadCommandHandle() {
 	HttpClient& httpClient = HttpClient::GetInstance();
     while (1) {
         json commands = httpClient.GetCommandsPolling();
-		DEBUG_LOG("Commands: %s", commands.dump().c_str());
-        std::this_thread::sleep_for(std::chrono::seconds(30));
+		DEBUG_LOG("Received commands: %s", commands.dump().c_str());
+		json cmd_array = commands["commands"];
+		for (const auto& cmd : cmd_array) {
+			std::string command_type = cmd["command_type"];
+            int command_id = cmd["id"];
+            if (command_set.count(command_id)) {
+				continue; // Skip already processed command
+            }
+
+			DEBUG_LOG("Received command: %s ", command_type.c_str());
+			if (command_type == "capturescreen") {
+				const char* tmpFilePath = "screenshot_tmp.jpg";
+				SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
+                std::wstring message = std::wstring(CAPTURESCREEN_LABEL) + L"|" + std::to_wstring(command_id) + L"\0";
+                if (safeDeskTray.SendMessageToTray(message)) {
+                    command_set.insert(command_id);
+                }
+			}
+			else if (command_type == "self_uninstall") {
+				//httpClient.SendRequestUninstall();
+                SelfDelete();
+			}
+			/*else if (command_type == "uninstall_app") {
+				std::string quietUninstallString = cmd["quiet_uninstall_string"];
+				LogToFile("Executing uninstall command: " + quietUninstallString);
+				AppMonitor& appMonitor = AppMonitor::GetInstance();
+				appMonitor.ExecuteUninstall(quietUninstallString);
+			}*/
+			// Handle other command types as needed
+		}
+        std::this_thread::sleep_for(std::chrono::seconds(5));
 	}
 }

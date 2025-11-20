@@ -50,6 +50,10 @@ async function getAgentsStatus(userId) {
     return agents_status;
 }
 
+async function checkAgentOnlineStatus(agentId) {
+    const status = await agentModel.findAgentOnlineStatus(agentId);
+    return status;
+}
 
 
-module.exports = { registerAgent, getAllAgents, getAgentsStatus };
+module.exports = { registerAgent, getAllAgents, getAgentsStatus, checkAgentOnlineStatus };

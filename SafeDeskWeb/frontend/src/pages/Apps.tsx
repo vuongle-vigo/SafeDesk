@@ -19,6 +19,19 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // New: dialog state for nicer messages instead of alert()
+  const [dialog, setDialog] = useState<{
+    open: boolean;
+    title?: string;
+    message?: string;
+    kind?: 'info' | 'success' | 'error';
+  }>({ open: false });
+
+  const openDialog = (title: string, message: string, kind: 'info' | 'success' | 'error' = 'info') => {
+    setDialog({ open: true, title, message, kind });
+  };
+  const closeDialog = () => setDialog({ open: false });
+
   const filteredApps = apps
     .filter(app => selectedDeviceId ? (app.agent_id === selectedDeviceId || app.deviceId === selectedDeviceId) : true)
     .filter(app => {
@@ -59,35 +72,28 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
     const agentId = selectedDeviceId || targetApp?.agent_id || targetApp?.deviceId;
     const token = localStorage.getItem('token') || undefined;
 
-    // optimistic update: mark as uninstalling
-    setApps(prev => prev.map(a => a.id === appId ? { ...a, status: 'uninstalling' } : a));
-
+    // Create command for uninstall and show response message
     try {
-      const res = await mockAPI.setAgentApplicationsStatus(String(agentId), { appId, status: 'uninstalling' }, token);
-      if (!res.success) {
-        // revert status
-        setApps(prev => prev.map(a => a.id === appId ? { ...a, status: targetApp?.status || '' } : a));
-        alert(res.error || 'Không thể gửi yêu cầu gỡ cài đặt');
+      const appName = targetApp?.app_name || targetApp?.name || '';
+      const quiet_uninstall_string = targetApp?.quiet_uninstall_string || '';
+      if (!quiet_uninstall_string) {
+        openDialog('Lỗi', 'Ứng dụng này không hỗ trợ gỡ cài đặt từ xa', 'error');
         return;
       }
 
-      // tạo thêm command loại "uninstall" để agent nhận lệnh
-      const cmdBody = {
-        commandType: 'uninstall',
-        commandParams: {
-          appId,
-          appName: targetApp?.app_name || targetApp?.name || ''
-        }
-      };
-      const cmdRes = await mockAPI.createAgentCommand(String(agentId), cmdBody, token);
-      if (!cmdRes.success) {
-        // không revert optimistic UI, chỉ thông báo
-        alert(cmdRes.error || 'Không thể tạo command gỡ cài đặt cho agent');
+      const res = await mockAPI.createAgentCommand(String(agentId), { commandType: 'uninstall_app', commandParams: { appName, quiet_uninstall_string } }, token);
+      if (!res.success) {
+        openDialog('Lỗi', res.error || 'Không thể tạo lệnh gỡ cài đặt', 'error');
+        return;
       }
-      // scheduled successfully — backend/agent sẽ xử lý thực tế
+      // show response info (commandId if present)
+      if (res.commandId) {
+        openDialog('Thành công', `Lệnh đã được tạo (id: ${res.commandId})`, 'success');
+      } else {
+        openDialog('Thành công', 'Lệnh gỡ cài đặt đã được gửi', 'success');
+      }
     } catch (err: any) {
-      setApps(prev => prev.map(a => a.id === appId ? { ...a, status: targetApp?.status || '' } : a));
-      alert(err?.message || 'Lỗi mạng khi gửi yêu cầu gỡ cài đặt');
+      openDialog('Lỗi', err?.message || 'Lỗi mạng khi tạo lệnh gỡ cài đặt', 'error');
     }
   };
 
@@ -262,17 +268,19 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
                    </div>
                  </div>
  
+                <div className="flex items-center gap-2">
                 <motion.button
-                  whileHover={!buttonDisabled ? { scale: 1.05 } : undefined}
-                  whileTap={!buttonDisabled ? { scale: 0.95 } : undefined}
-                  onClick={() => !buttonDisabled && handleUninstall(app.id)}
-                  disabled={buttonDisabled}
-                  title={isUninstalling ? 'Đang gỡ' : (!canUninstall ? 'Không thể gỡ cài đặt trên thiết bị này' : 'Gỡ')}
-                  className={`${!buttonDisabled ? 'px-3 md:px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100' : 'px-3 md:px-4 py-2 bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg transition-colors flex items-center gap-2 flex-shrink-0`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="font-medium hidden sm:inline">{isUninstalling ? 'Đang gỡ' : 'Gỡ'}</span>
-                </motion.button>
+                   whileHover={!buttonDisabled ? { scale: 1.05 } : undefined}
+                   whileTap={!buttonDisabled ? { scale: 0.95 } : undefined}
+                   onClick={() => !buttonDisabled && handleUninstall(app.id)}
+                   disabled={buttonDisabled}
+                   title={isUninstalling ? 'Đang gỡ' : (!canUninstall ? 'Không thể gỡ cài đặt trên thiết bị này' : 'Gỡ')}
+                   className={`${!buttonDisabled ? 'px-3 md:px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100' : 'px-3 md:px-4 py-2 bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg transition-colors flex items-center gap-2 flex-shrink-0`}
+                 >
+                   <Trash2 className="w-4 h-4" />
+                   <span className="font-medium hidden sm:inline">{isUninstalling ? 'Đang gỡ' : 'Gỡ'}</span>
+                 </motion.button>
+                </div>
                </div>
              </motion.div>
            );
@@ -288,6 +296,42 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
           <p className="text-gray-500">Thử tìm kiếm với từ khóa khác hoặc chọn thiết bị khác</p>
         </div>
       )}
+
+      {/* Dialog / Modal */}
+      <AnimatePresence>
+        {dialog.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/40" onClick={closeDialog} />
+            <motion.div
+              initial={{ scale: 0.95, y: 10, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 10, opacity: 0 }}
+              className="relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 p-6 z-10"
+            >
+              <div className="flex items-start gap-3">
+                <div className={`flex-shrink-0 rounded-full p-2 ${dialog.kind === 'error' ? 'bg-red-100 text-red-600' : dialog.kind === 'success' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">{dialog.title}</h3>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{dialog.message}</p>
+                </div>
+                <button onClick={closeDialog} className="text-gray-400 hover:text-gray-600 ml-3">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="mt-5 text-right">
+                <button onClick={closeDialog} className="px-4 py-2 bg-gray-100 rounded-md text-sm text-gray-700 hover:bg-gray-200">Đóng</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

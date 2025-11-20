@@ -112,54 +112,48 @@ std::string ProcessMonitor::GetProcessPath(DWORD dwProcessId) {
 #endif
 }
 
-BOOL ProcessMonitor::StopProcess(std::string& sProcessName) {
-    HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hProcessSnap == INVALID_HANDLE_VALUE) {
+BOOL ProcessMonitor::StopProcess(const std::wstring sProcessName) {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
         PRINT_API_ERR("CreateToolhelp32Snapshot");
-        return false;
+        return FALSE;
     }
 
-    PROCESSENTRY32 pe32;
+    PROCESSENTRY32 pe32 = { 0 };
     pe32.dwSize = sizeof(PROCESSENTRY32);
 
-    if (Process32First(hProcessSnap, &pe32)) {
-        do {
-            std::string processPath = this->GetProcessPath(pe32.th32ProcessID);
-            ProcessMonitor::ProcessInfo processInfo;
-#ifdef UNICODE
-            std::wstring ws(pe32.szExeFile);
-            std::string processName(ws.begin(), ws.end());
-#else
-            std::string processName(pe32.szExeFile);
-#endif
-            if (processName == sProcessName) {
-                HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pe32.th32ProcessID);
-                if (hProcess == NULL) {
-                    PRINT_API_ERR("OpenProcess");
-                    CloseHandle(hProcessSnap);
-                    return false;
-                }
+    if (!Process32First(hSnapshot, &pe32)) {
+        PRINT_API_ERR("Process32First");
+        CloseHandle(hSnapshot);
+        return FALSE;
+    }
 
-                if (!TerminateProcess(hProcess, 0)) {
-                    PRINT_API_ERR("TerminateProcess");
-                    CloseHandle(hProcess);
-                    CloseHandle(hProcessSnap);
-                    return false;
-                }
+    BOOL result = FALSE;
 
-                CloseHandle(hProcess);
-                CloseHandle(hProcessSnap);
-                return true;
+    do {
+        if (_wcsicmp(pe32.szExeFile, sProcessName.c_str()) == 0) {
+
+            HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
+            if (!hProcess) {
+                PRINT_API_ERR("OpenProcess");
+                continue;
             }
 
-        } while (Process32Next(hProcessSnap, &pe32));
-    }
-    else {
-        PRINT_API_ERR("Process32First");
-    }
+            if (!TerminateProcess(hProcess, 0)) {
+                PRINT_API_ERR("TerminateProcess");
+                CloseHandle(hProcess);
+                continue;
+            }
 
-    CloseHandle(hProcessSnap);
-    return false;
+            CloseHandle(hProcess);
+            result = TRUE;
+            break; 
+        }
+
+    } while (Process32Next(hSnapshot, &pe32));
+
+    CloseHandle(hSnapshot);
+    return result;
 }
 
 bool ProcessMonitor::SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle) {

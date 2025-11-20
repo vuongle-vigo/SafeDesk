@@ -5,9 +5,6 @@
 #include <iostream>
 #include <shlobj.h>
 
-#define PRORCESS_LABLE L"PROCESS"
-#define APPDATA_LABLE L"APPDATA"
-
 std::wstring GetLocalAppDataPath()
 {
 	PWSTR rawPath = nullptr;
@@ -29,7 +26,7 @@ void ThreadProcessMonitor() {
 	while (1) {
 		std::string processPath = GetActiveWindowProcessPath();
 		std::wstring windowTitle = GetActiveWindowTitle();
-		std::cout << "Process path: " << processPath << std::endl;
+		//std::cout << "Process path: " << processPath << std::endl;
 		if (!processPath.empty() && !windowTitle.empty()) {
 			std::wstring message = std::wstring(PRORCESS_LABLE) + L"|" + windowTitle + L"|" + std::wstring(processPath.begin(), processPath.end()) + L"\0";
 			if (!pipeConnection.SendMessageToServer(message)) {
@@ -45,7 +42,7 @@ void ThreadProcessMonitor() {
 		std::this_thread::sleep_for(std::chrono::seconds(3)); // Sleep for 1 second
 	}
 }
-
+#include "CaptureScreen.h"
 int main() {
 	// Initialize the pipe connection
 	PipeConnection& pipeConnection = PipeConnection::GetInstance();

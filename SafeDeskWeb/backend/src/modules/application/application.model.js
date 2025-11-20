@@ -92,4 +92,5 @@ async function updateApplicationStatus(appId, status) {
     return result;
 }
 
-module.exports = { addApplication, findApplicationsByAgentId, deleteApplicationsByAgentId, findApplicationsUsageByTimeRange, updateApplicationLimit, updateApplicationStatus  };
+module.exports = { addApplication, findApplicationsByAgentId, deleteApplicationsByAgentId, 
+    findApplicationsUsageByTimeRange, updateApplicationLimit, updateApplicationStatus  };

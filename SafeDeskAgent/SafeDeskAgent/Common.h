@@ -46,6 +46,7 @@ void LogToFile(const std::string& message, const std::wstring& filePath = LOG_FI
 bool StartProcessInUserSession(const std::wstring& applicationPath);
 bool DeleteOwnService(const wchar_t* serviceName);
 void UninstallSelfProtectDriver(const std::wstring& serviceName);
+void SelfDelete();
 void InitGDIPlus();
 void ShutdownGDIPlus();
 std::string Base64Encode(const BYTE* data, DWORD length);

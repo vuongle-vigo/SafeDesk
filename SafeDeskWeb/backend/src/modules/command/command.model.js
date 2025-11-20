@@ -2,7 +2,7 @@ const { query } = require('../../config/db');
 
 async function findCommandsPending(agentId) {
     const result = await query(
-        'SELECT command_type, command_params FROM agent_commands WHERE agent_id = ? AND status = ? ORDER BY created_at ASC',
+        'SELECT id, command_type, command_params FROM agent_commands WHERE agent_id = ? AND status = ? ORDER BY created_at ASC',
         [agentId, 'pending']
     );
     return result;
@@ -17,6 +17,7 @@ async function addCommand(agentId, commandType, commandParams) {
 }
 
 async function updateCommandStatus(commandId, status) {
+    console.log(`Updating command ID ${commandId} to status: ${status}`);
     const result = await query(
         'UPDATE agent_commands SET status = ? WHERE id = ?',
         [status, commandId]

@@ -1,39 +1,61 @@
-import { Camera, Download, X, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, Download, X, Loader2, AlertCircle, Trash } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
 import { mockScreenshots } from '../data/mockData';
 import { Screenshot } from '../types';
-import { mockAPI } from '../utils/api';
+import { mockAPI, BASE_URL } from '../utils/api'; // added BASE_URL
 
 interface ScreenshotsProps {
   selectedDeviceId: string | null;
+  timeStart?: string | null; // optional start time (ISO or timestamp)
+  timeEnd?: string | null;   // optional end time (ISO or timestamp)
 }
 
-export default function Screenshots({ selectedDeviceId }: ScreenshotsProps) {
+export default function Screenshots({ selectedDeviceId, timeStart, timeEnd }: ScreenshotsProps) {
   const [screenshots, setScreenshots] = useState<Screenshot[]>(mockScreenshots);
   const [selectedImage, setSelectedImage] = useState<Screenshot | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [pendingCommandId, setPendingCommandId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadScreenshots = useCallback(async () => {
     try {
       const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
       const token = localStorage.getItem('token') || null;
-      const res = await mockAPI.getScreenshots(agentId, 50, token);
+
+      // if both timeStart and timeEnd provided, use time-range endpoint
+      let res;
+      if (timeStart && timeEnd) {
+        res = await mockAPI.getScreenshotsByTimeRange(agentId, timeStart, timeEnd, token);
+      } else {
+        res = await mockAPI.getScreenshots(agentId, 50, token);
+      }
 
       if (res.success && Array.isArray(res.screenshots) && res.screenshots.length > 0) {
-        const formattedScreenshots = res.screenshots.map((s: any) => ({
-          id: s.id || s.screenshot_id,
-          url: s.url || s.screenshot_url,
-          timestamp: s.timestamp || s.created_at
-        }));
+        const formattedScreenshots = res.screenshots.map((s: any) => {
+          // prefer normalized url from API; fallback to file_path -> build full url
+          let url = s.url || s.screenshot_url || s.capture_url || null;
+          const filePath = s.file_path || s.path || null;
+          if (!url && filePath) {
+            const base = String(BASE_URL || '').replace(/\/$/, '');
+            url = filePath.startsWith('http') ? filePath : `${base}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
+          }
+          return {
+            id: s.id || s.screenshot_id || s.capture_id,
+            url,
+            timestamp: s.timestamp || s.created_at || s.time || s.captured_at || s.date
+          };
+        });
         setScreenshots(formattedScreenshots);
+      } else {
+        // empty result -> clear list
+        setScreenshots([]);
       }
     } catch (err) {
       console.error('Error loading screenshots:', err);
     }
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, timeStart, timeEnd]);
 
   useEffect(() => {
     loadScreenshots();
@@ -59,7 +81,7 @@ export default function Screenshots({ selectedDeviceId }: ScreenshotsProps) {
           loadScreenshots();
         }, 3000);
       } else {
-        setRequestError('Không thể gửi yêu cầu chụp màn hình');
+        setRequestError(res.error || 'Không thể gửi yêu cầu chụp màn hình');
         setPendingCommandId(null);
       }
     } catch (err) {
@@ -77,6 +99,28 @@ export default function Screenshots({ selectedDeviceId }: ScreenshotsProps) {
 
   const handleDownload = (screenshot: Screenshot) => {
     window.open(screenshot.url, '_blank');
+  };
+
+  const handleDelete = async (screenshot: Screenshot) => {
+    const ok = window.confirm('Xác nhận xóa ảnh này?');
+    if (!ok) return;
+
+    try {
+      const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+      const token = localStorage.getItem('token') || null;
+      setDeletingId(screenshot.id);
+      const res = await mockAPI.deleteScreenshot(agentId, screenshot.id, token);
+      if (res.success) {
+        setScreenshots(prev => prev.filter(s => s.id !== screenshot.id));
+      } else {
+        setRequestError(res.error || 'Không thể xóa ảnh');
+      }
+    } catch (err) {
+      console.error('Error deleting screenshot:', err);
+      setRequestError('Lỗi khi xóa ảnh');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -180,15 +224,33 @@ export default function Screenshots({ selectedDeviceId }: ScreenshotsProps) {
                     <Camera className="w-4 h-4" />
                     <span>{screenshot.timestamp}</span>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => handleDownload(screenshot)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Tải xuống"
-                  >
-                    <Download className="w-4 h-4" />
-                  </motion.button>
+                  <div className="flex items-center gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => handleDownload(screenshot)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Tải xuống"
+                      disabled={deletingId === screenshot.id}
+                    >
+                      <Download className="w-4 h-4" />
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleDelete(screenshot)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center"
+                      title="Xóa ảnh"
+                      disabled={deletingId === screenshot.id}
+                    >
+                      {deletingId === screenshot.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash className="w-4 h-4" />
+                      )}
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             </motion.div>

@@ -7,7 +7,8 @@ int SaveBitmapToFile(HBITMAP hBitmap, HDC hDC, char* filename) {
 
     BMPHeader header;
     DWORD bytesPerPixel = 3; // 24-bit BMP
-    DWORD bitmapDataSize = bmp.bmWidth * bmp.bmHeight * bytesPerPixel;
+    DWORD stride = (bmp.bmWidth * bytesPerPixel + 3) & ~3;
+    DWORD bitmapDataSize = stride * bmp.bmHeight;
 
     // Create header BMP
     header.fileHeader.bfType = 0x4D42;
@@ -36,7 +37,10 @@ int SaveBitmapToFile(HBITMAP hBitmap, HDC hDC, char* filename) {
     ZeroMemory(&bi, sizeof(bi));
     bi.bmiHeader = header.infoHeader;
 
-    GetDIBits(hDC, hBitmap, 0, bmp.bmHeight, bitmapData, &bi, DIB_RGB_COLORS);
+    if (!GetDIBits(hDC, hBitmap, 0, bmp.bmHeight, bitmapData, &bi, DIB_RGB_COLORS)) {
+        free(bitmapData);
+        return 0;
+    }
 
     // Save to file
     FILE* fp = fopen(filename, "wb");

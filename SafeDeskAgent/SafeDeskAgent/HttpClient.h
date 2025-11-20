@@ -12,6 +12,8 @@ using namespace httplib;
 #define API_POWER_USAGE_POST		"/api/agents/power-usage"
 #define API_PROCESS_USAGE_POST		"/api/agents/process-usage"
 #define API_COMMANDS_POLLING		"/api/agents/commands-polling"
+#define API_SCREENSHOT_POST			"/api/agents/capture-screen"
+
 class HttpClient {
 public:
 	HttpClient();
@@ -23,6 +25,7 @@ public:
 	bool SendRequestGetPolling();
 	json SendRequestGetConfig();
 	bool SendRequestUninstall();
+	bool PostFileScreenshot(const std::string& sFilePath, int commandId);
 	bool PostPowerUsage(json data);
 	bool PostProcessUsage(json data);
 	bool PostApplication(json data);

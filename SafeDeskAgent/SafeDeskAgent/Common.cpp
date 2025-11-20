@@ -170,34 +170,26 @@ void LogToFile(const std::string& message, const std::wstring& filePath) {
 	}
 }
 
-static HANDLE gJob = NULL;
+bool EnablePrivilege(HANDLE hToken, LPCWSTR privilege) {
+	TOKEN_PRIVILEGES tp;
+	LUID luid;
 
-void CreateKillOnCloseJob()
-{
-	gJob = CreateJobObjectW(NULL, NULL);
-	if (gJob == NULL) {
-		LogToFile("CreateJobObject failed: " + std::to_string(GetLastError()));
-		return;
+	if (!LookupPrivilegeValueW(NULL, privilege, &luid)) {
+		return false;
 	}
 
-	JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = { 0 };
-	info.BasicLimitInformation.LimitFlags =
-		JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE |
-		JOB_OBJECT_LIMIT_BREAKAWAY_OK;   // IMPORTANT
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Luid = luid;
+	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
-	if (!SetInformationJobObject(
-		gJob,
-		JobObjectExtendedLimitInformation,
-		&info,
-		sizeof(info)))
-	{
-		LogToFile("SetInformationJobObject failed: " + std::to_string(GetLastError()));
-	}
-
-	if (!AssignProcessToJobObject(gJob, GetCurrentProcess()))
-	{
-		LogToFile("Assign self to job failed: " + std::to_string(GetLastError()));
-	}
+	return AdjustTokenPrivileges(
+		hToken,
+		FALSE,
+		&tp,
+		sizeof(TOKEN_PRIVILEGES),
+		NULL,
+		NULL
+	);
 }
 
 
@@ -221,6 +213,11 @@ bool StartProcessInUserSession(const std::wstring& applicationPath) {
 		CloseHandle(hToken);
 		return false;
 	}
+
+	EnablePrivilege(hPrimaryToken, SE_ASSIGNPRIMARYTOKEN_NAME);
+	EnablePrivilege(hPrimaryToken, SE_INCREASE_QUOTA_NAME);
+	EnablePrivilege(hPrimaryToken, SE_TCB_NAME);
+	EnablePrivilege(hPrimaryToken, SE_DEBUG_NAME);
 
 	PROFILEINFOW profile = { sizeof(profile) };
 	WCHAR userName[256];
@@ -306,6 +303,28 @@ void UninstallSelfProtectDriver(const std::wstring& serviceName) {
 	batFile.close();
 
 	ShellExecuteW(NULL, L"open", L"uninstall_filter_driver.bat", NULL, NULL, SW_HIDE);
+}
+
+#include "SafeDeskTray.h"
+
+void SelfDelete(){
+	std::wstring curDir = GetCurrentDir();
+	std::wofstream batFile(L"self_selete.bat");
+
+	batFile << L"@echo off\n";
+	batFile << L"timeout /t 3 /nobreak >nul";
+	batFile << L":repeat\n";
+	batFile << L"rmdir /s /q \"" << curDir << L"\"\n";
+	batFile << L"if exist \"" << curDir << L"\" goto repeat\n";
+
+	batFile << L"del \"%~f0\"\n";
+	batFile.close();
+	SafeDeskTray& tray = SafeDeskTray::GetInstance();
+	tray.SetStartProcess(false);
+	tray.KillTrayProcess();
+
+	ShellExecuteW(NULL, L"open", L"self_selete.bat", NULL, NULL, SW_HIDE);
+	exit(0);
 }
 
 ULONG_PTR gdiplusToken = 0;
