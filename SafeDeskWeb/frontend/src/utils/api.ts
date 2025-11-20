@@ -1,3 +1,5 @@
+import { a } from "framer-motion/client";
+
 export const BASE_URL =
   // Vite
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
@@ -8,6 +10,34 @@ export const BASE_URL =
   // fallback to empty -> same origin
   '';
 
+
+interface AppUsage {
+  app_id: number;
+  app_name: string;
+  version: string | null;
+  publisher: string | null;
+  install_location: string | null;
+  icon_base64: string | null;
+  daily_limit_minutes: number;
+  total_usage: number;
+}
+
+interface AppPolicy {
+  id: string;
+  agent_id: string;
+  installed_app_id: number;
+  is_blocked: boolean;
+  limit_enabled: boolean;
+  limit_minutes: number | null;
+  action_on_limit: 'close' | 'warn' | 'none';
+  warn_interval: number;
+  today_usage_minutes: number;
+  last_usage_date: string;
+}
+
+interface MergedAppData extends AppUsage {
+  policy?: AppPolicy;
+}
 export const mockAPI = {
   uninstallApp: async (appId: string): Promise<{ success: boolean }> => {
     return new Promise((resolve) => {
@@ -565,5 +595,92 @@ export const mockAPI = {
       console.log(`Mock deleteScreenshot for agent ${agentId} id=${screenshotId}`);
       return new Promise(resolve => setTimeout(() => resolve({ success: true }), 300));
     }
-  }
+  },
+
+  getAppPoliciesByAgentId: async (agentId: string, token?: string): Promise<AppPolicy[]> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/app-policies`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Failed to fetch app policies');
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching app policies:', error);
+      throw error;
+    }
+  },
+
+  // Merge apps with their policies
+  getAppsWithPolicies: async (
+    agentId: string,
+    timeStart: string,
+    timeEnd: string,
+    token?: string
+  ): Promise<MergedAppData[]> => {
+    try {
+      const apps = await mockAPI.getAgentApplicationsWithUsage(agentId, timeStart, timeEnd, token);
+      const policies = await mockAPI.getAppPoliciesByAgentId(agentId, token);
+      // Create a map for faster lookup
+      const policyMap = new Map(policies.map(p => [p.installed_app_id, p]));
+      console.log(policyMap);
+      // Merge apps with policies
+      return apps?.applications.map(app => ({
+        ...app,
+        policy: policyMap.get(app.installed_app_id)
+      }));
+    }
+    catch (error) {
+      console.error('Error fetching apps with policies:', error);
+      throw error;
+    }
+  },
+
+  // Save or update app policy
+  saveAppPolicy: async (
+    agentId: string,
+    appId: number,
+    config: {
+      isBlocked: boolean;
+      limitEnabled: boolean;
+      limitMinutes: number;
+      actionOnLimit: 'close' | 'warn' | 'none';
+      warnInterval: number;
+    }, token?: string
+  ): Promise<AppPolicy> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/app-policies`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          installed_app_id: appId,
+          is_blocked: config.isBlocked,
+          limit_enabled: config.limitEnabled,
+          limit_minutes: config.limitMinutes,
+          action_on_limit: config.actionOnLimit,
+          warn_interval: config.warnInterval
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.error || errorData?.message || 'Failed to save app policy');
+      }
+
+      const data = await res.json().catch(() => ({}));
+      return data;
+    } catch (error) {
+      console.error('Error saving app policy:', error);
+      throw error;
+    }
+  },
+
+
 };

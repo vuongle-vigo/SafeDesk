@@ -1,187 +1,167 @@
-import { Search, Trash2, Edit2, X, Tag } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Settings, Ban, Clock, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { mockApps, mockCategoryLabels } from '../data/mockData';
-import { AppInfo, CategoryLabel } from '../types';
+import DateRangePicker from '../components/DateRangePicker';
+import AppConfigModal from '../components/AppConfigModal';
 import { mockAPI } from '../utils/api';
 
 interface AppsProps {
   selectedDeviceId: string | null;
 }
 
-export default function Apps({ selectedDeviceId }: AppsProps) {
-  // accept API shape (icon_base64, app_name, version, publisher, status, last_updated)
-  const [apps, setApps] = useState<any[]>(mockApps);
-  const [categoryLabels, setCategoryLabels] = useState<CategoryLabel[]>(mockCategoryLabels);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [isEditingCategories, setIsEditingCategories] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface AppConfig {
+  limitEnabled: boolean;
+  limitMinutes: number;
+  actionOnLimit: 'close' | 'warn' | 'none';
+  warnInterval: number;
+  isBlocked: boolean;
+}
 
-  // New: dialog state for nicer messages instead of alert()
-  const [dialog, setDialog] = useState<{
-    open: boolean;
-    title?: string;
-    message?: string;
-    kind?: 'info' | 'success' | 'error';
-  }>({ open: false });
-
-  const openDialog = (title: string, message: string, kind: 'info' | 'success' | 'error' = 'info') => {
-    setDialog({ open: true, title, message, kind });
+interface AppData {
+  app_id: number;
+  app_name: string;
+  version: string | null;
+  publisher: string | null;
+  install_location: string | null;
+  icon_base64: string | null;
+  daily_limit_minutes: number;
+  total_usage: number;
+  policy?: {
+    id: string;
+    is_blocked: boolean;
+    limit_enabled: boolean;
+    limit_minutes: number | null;
+    action_on_limit: 'close' | 'warn' | 'none';
+    warn_interval: number;
+    today_usage_minutes: number;
   };
-  const closeDialog = () => setDialog({ open: false });
+}
 
-  const filteredApps = apps
-    .filter(app => selectedDeviceId ? (app.agent_id === selectedDeviceId || app.deviceId === selectedDeviceId) : true)
-    .filter(app => {
-      const name = (app.app_name || app.name || '').toString().toLowerCase();
-      return name.includes(searchTerm.toLowerCase());
-    });
+export default function Apps({ selectedDeviceId }: AppsProps) {
+  const [apps, setApps] = useState<AppData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState({
+    startDate: new Date(),
+    endDate: new Date()
+  });
+  const [configModalApp, setConfigModalApp] = useState<AppData | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    const token = localStorage.getItem('token') || undefined;
-    const load = async () => {
-      if (!selectedDeviceId) {
-        setApps(mockApps);
-        setLoading(false);
-        setError(null);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      const res = await mockAPI.getAgentApplications(selectedDeviceId, token);
-      if (!mounted) return;
-      setLoading(false);
-      if (!res.success) {
-        setError(res.error || 'Không thể tải ứng dụng');
-        return;
-      }
-      setApps(res.applications || []);
-    };
-    load();
-    return () => { mounted = false; };
-  }, [selectedDeviceId]);
+    if (selectedDeviceId) {
+      loadApps();
+    }
+  }, [selectedDeviceId, selectedDate]);
 
-  const handleUninstall = async (appId: string) => {
-    if (!window.confirm('Bạn có chắc muốn gỡ cài đặt ứng dụng này?')) return;
+  // <-- thêm helper để format ngày theo timezone local (tránh mất 1 ngày do toISOString -> UTC)
+  const formatDateLocal = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
-    // find app and agent id
-    const targetApp = apps.find(a => a.id === appId);
-    const agentId = selectedDeviceId || targetApp?.agent_id || targetApp?.deviceId;
-    const token = localStorage.getItem('token') || undefined;
+  const loadApps = async () => {
+    if (!selectedDeviceId) return;
 
-    // Create command for uninstall and show response message
+    setLoading(true);
+    setError(null);
+
     try {
-      const appName = targetApp?.app_name || targetApp?.name || '';
-      const quiet_uninstall_string = targetApp?.quiet_uninstall_string || '';
-      if (!quiet_uninstall_string) {
-        openDialog('Lỗi', 'Ứng dụng này không hỗ trợ gỡ cài đặt từ xa', 'error');
-        return;
-      }
+      // sử dụng format local để tránh về ngày trước do toISOString() -> UTC
+      const timeStart = formatDateLocal(selectedDate.startDate);
+      const timeEnd = formatDateLocal(selectedDate.endDate);
 
-      const res = await mockAPI.createAgentCommand(String(agentId), { commandType: 'uninstall_app', commandParams: { appName, quiet_uninstall_string } }, token);
-      if (!res.success) {
-        openDialog('Lỗi', res.error || 'Không thể tạo lệnh gỡ cài đặt', 'error');
-        return;
-      }
-      // show response info (commandId if present)
-      if (res.commandId) {
-        openDialog('Thành công', `Lệnh đã được tạo (id: ${res.commandId})`, 'success');
-      } else {
-        openDialog('Thành công', 'Lệnh gỡ cài đặt đã được gửi', 'success');
-      }
-    } catch (err: any) {
-      openDialog('Lỗi', err?.message || 'Lỗi mạng khi tạo lệnh gỡ cài đặt', 'error');
+      console.log('Loading apps for device:', selectedDeviceId, 'from', timeStart, 'to', timeEnd);
+      const token =
+        localStorage.getItem('token') ||
+        null;
+        
+      const data = await mockAPI.getAppsWithPolicies(selectedDeviceId, timeStart, timeEnd, token);
+      setApps(data);
+    } catch (err) {
+      console.error('Failed to load apps:', err);
+      setError('Không thể tải danh sách ứng dụng');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChangeCategory = (appId: string, newCategory: string) => {
-    setApps(apps.map(app =>
-      app.id === appId ? { ...app, category: newCategory as AppInfo['category'] } : app
-    ));
-    setEditingAppId(null);
+  const filteredApps = apps
+    .filter(app => app.app_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const handleSaveConfig = async (appId: number, config: AppConfig) => {
+    if (!selectedDeviceId) return;
+    const token =
+        localStorage.getItem('token') ||
+        null;
+
+    try {
+      await mockAPI.saveAppPolicy(selectedDeviceId, appId, {
+        isBlocked: config.isBlocked,
+        limitEnabled: config.limitEnabled,
+        limitMinutes: config.limitMinutes,
+        actionOnLimit: config.actionOnLimit,
+        warnInterval: config.warnInterval
+      }, token);
+
+      await loadApps();
+    } catch (err) {
+      console.error('Failed to save app config:', err);
+      alert('Không thể lưu cấu hình');
+    }
   };
 
-  const handleUpdateCategoryLabel = (categoryId: string, newLabel: string, newColor: string) => {
-    setCategoryLabels(categoryLabels.map(cat =>
-      cat.id === categoryId ? { ...cat, label: newLabel, color: newColor } : cat
-    ));
+  const formatTime = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
   };
 
-  const getCategoryLabel = (category: string) => {
-    const label = categoryLabels.find(c => c.category === category);
-    return label ? label.label : category;
-  };
+  const getAppStatus = (app: AppData) => {
+    const policy = app.policy;
+    if (!policy) return null;
 
-  const getCategoryColor = (category: string) => {
-    const label = categoryLabels.find(c => c.category === category);
-    return label ? label.color : '#6B7280';
+    if (policy.is_blocked) {
+      return { type: 'blocked', label: 'Đã chặn', color: 'red' };
+    }
+
+    if (policy.limit_enabled && policy.limit_minutes) {
+      const used = policy.today_usage_minutes || 0;
+      const percentage = (used / policy.limit_minutes) * 100;
+
+      if (percentage >= 100) {
+        return { type: 'overlimit', label: 'Vượt giới hạn', color: 'red' };
+      } else if (percentage >= 80) {
+        return { type: 'warning', label: 'Gần đạt giới hạn', color: 'yellow' };
+      } else {
+        return { type: 'normal', label: 'Có giới hạn', color: 'green' };
+      }
+    }
+
+    return null;
   };
 
   return (
     <div className="space-y-6">
       {!selectedDeviceId && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-center gap-3">
-          <Tag className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
           <p className="text-sm text-yellow-700">Vui lòng chọn thiết bị ở trang "Thiết bị quản lý" để xem ứng dụng</p>
         </div>
-      )}
-      {selectedDeviceId && loading && (
-        <div className="bg-white rounded-xl p-4 border border-gray-200 text-sm text-gray-600">Đang tải ứng dụng...</div>
-      )}
-      {selectedDeviceId && error && (
-        <div className="bg-red-50 rounded-xl p-4 border border-red-200 text-sm text-red-600">{error}</div>
       )}
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý ứng dụng</h1>
-          <p className="text-gray-500 mt-1">Tổng cộng {filteredApps.length} ứng dụng</p>
+          <p className="text-gray-500 mt-1">
+            {loading ? 'Đang tải...' : `Tổng cộng ${filteredApps.length} ứng dụng`}
+          </p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsEditingCategories(!isEditingCategories)}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-        >
-          <Tag className="w-4 h-4" />
-          <span>Quản lý nhãn</span>
-        </motion.button>
+        <DateRangePicker value={selectedDate} onChange={setSelectedDate} />
       </div>
-
-      <AnimatePresence>
-        {isEditingCategories && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-white rounded-xl p-4 md:p-6 border border-gray-200 overflow-hidden"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Chỉnh sửa nhãn danh mục</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {categoryLabels.map((cat) => (
-                <div key={cat.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <input
-                    type="color"
-                    value={cat.color}
-                    onChange={(e) => handleUpdateCategoryLabel(cat.id, cat.label, e.target.value)}
-                    className="w-10 h-10 rounded cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={cat.label}
-                    onChange={(e) => handleUpdateCategoryLabel(cat.id, e.target.value, cat.color)}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-xs text-gray-500 capitalize">{cat.category}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <div className="relative">
@@ -196,98 +176,135 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {filteredApps.map((app, index) => {
-          const name = app.app_name || app.name || 'Unknown';
-          const version = app.version || app.ver || '';
-          const publisher = app.publisher || app.manufacturer || '';
-          const status = app.status || '';
-          const lastUpdated = app.last_updated || app.lastUpdated || '';
-          const iconBase64 = app.icon_base64 || app.iconBase64 || null;
+      {loading && (
+        <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Clock className="w-8 h-8 text-blue-600" />
+          </div>
+          <p className="text-gray-600">Đang tải danh sách ứng dụng...</p>
+        </div>
+      )}
 
-          // enable uninstall only when quite_uninstall_string is non-empty
-          const canUninstall = !!((app.quite_uninstall_string || app.quiet_uninstall_string || '').toString().trim());
-          // if backend set status to "uninstalling", show "Đang gỡ" and disable the button
-          const isUninstalling = (status === 'uninstalling');
-          const buttonDisabled = !canUninstall || isUninstalling;
-           return (
-             <motion.div
-               key={app.id}
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: index * 0.05 }}
-               className="bg-white rounded-xl p-4 md:p-5 border border-gray-200 hover:shadow-md transition-all"
-             >
-               <div className="flex items-center gap-3 md:gap-4">
-                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50 overflow-hidden">
-                   {iconBase64 ? (
-                     <img src={`data:image/png;base64,${iconBase64}`} alt={name} className="w-full h-full object-contain" />
-                   ) : (
-                     <div className="text-xl md:text-2xl text-gray-600">{name.charAt(0)}</div>
-                   )}
-                 </div>
- 
-                 <div className="flex-1 min-w-0">
-                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                     <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate">{name}</h3>
-                     {editingAppId === app.id ? (
-                       <div className="flex items-center gap-1">
-                         <select
-                           value={app.category}
-                           onChange={(e) => handleChangeCategory(app.id, e.target.value)}
-                           className="text-xs px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           autoFocus
-                         >
-                           {categoryLabels.map(cat => (
-                             <option key={cat.id} value={cat.category}>{cat.label}</option>
-                           ))}
-                         </select>
-                         <button
-                           onClick={() => setEditingAppId(null)}
-                           className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                         >
-                           <X className="w-3 h-3" />
-                         </button>
-                       </div>
-                     ) : (
-                       <button
-                         onClick={() => setEditingAppId(app.id)}
-                         className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
-                         style={{ backgroundColor: getCategoryColor(app.category) + '20', color: getCategoryColor(app.category) }}
-                       >
-                         <span>{getCategoryLabel(app.category)}</span>
-                         <Edit2 className="w-3 h-3" />
-                       </button>
-                     )}
-                   </div>
-                   <div className="flex items-center gap-3 text-xs md:text-sm text-gray-500 flex-wrap">
-                     {version && <span>Phiên bản: <span className="font-mono">{version}</span></span>}
-                     {publisher && <span>• Nhà phát hành: {publisher}</span>}
-                     {status && <span>• Trạng thái: {status}</span>}
-                     {lastUpdated && <span>• Cập nhật: {lastUpdated}</span>}
-                   </div>
-                 </div>
- 
-                <div className="flex items-center gap-2">
-                <motion.button
-                   whileHover={!buttonDisabled ? { scale: 1.05 } : undefined}
-                   whileTap={!buttonDisabled ? { scale: 0.95 } : undefined}
-                   onClick={() => !buttonDisabled && handleUninstall(app.id)}
-                   disabled={buttonDisabled}
-                   title={isUninstalling ? 'Đang gỡ' : (!canUninstall ? 'Không thể gỡ cài đặt trên thiết bị này' : 'Gỡ')}
-                   className={`${!buttonDisabled ? 'px-3 md:px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100' : 'px-3 md:px-4 py-2 bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg transition-colors flex items-center gap-2 flex-shrink-0`}
-                 >
-                   <Trash2 className="w-4 h-4" />
-                   <span className="font-medium hidden sm:inline">{isUninstalling ? 'Đang gỡ' : 'Gỡ'}</span>
-                 </motion.button>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="grid grid-cols-1 gap-4">
+          {filteredApps.map((app, index) => {
+            const policy = app.policy;
+            const usedMinutes = app?.total_usage || 0;
+            const status = getAppStatus(app);
+            const percentage = policy?.limit_enabled && policy.limit_minutes
+              ? (usedMinutes / policy.limit_minutes) * 100
+              : 0;
+
+            return (
+              <motion.div
+                key={app.app_id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-white rounded-xl p-4 md:p-5 border border-gray-200 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start gap-3 md:gap-4">
+                  {app.icon_base64 ? (
+                    <img
+                      src={`data:image/png;base64,${app.icon_base64}`}
+                      alt={app.app_name}
+                      className="w-12 h-12 md:w-14 md:h-14 rounded-xl object-contain flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center text-xl md:text-2xl flex-shrink-0">
+                      📦
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate">{app.app_name}</h3>
+                    {status && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                        status.color === 'red' ? 'bg-red-100 text-red-700' :
+                        status.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {status.type === 'blocked' && <Ban className="w-3 h-3" />}
+                        {status.label}
+                      </span>
+                    )}
+                  </div>
+
+                    <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500 flex-wrap mb-2">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        Đã dùng: <span className="font-medium text-gray-700">{formatTime(usedMinutes)}</span>
+                      </span>
+                      {policy?.limit_enabled && policy.limit_minutes && (
+                        <>
+                          <span className="hidden sm:inline">•</span>
+                          <span>
+                            Giới hạn: <span className="font-medium text-gray-700">{formatTime(policy.limit_minutes)}</span>
+                          </span>
+                        </>
+                      )}
+                      {app.version && (
+                        <>
+                          <span className="hidden sm:inline">•</span>
+                          <span>v{app.version}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {policy?.limit_enabled && policy.limit_minutes && (
+                      <div className="mt-3">
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(percentage, 100)}%` }}
+                          transition={{ duration: 0.8, delay: index * 0.1 }}
+                          className={`h-full transition-all duration-300 ${
+                            percentage >= 100 ? 'bg-red-500' :
+                            percentage >= 80 ? 'bg-yellow-500' :
+                            'bg-green-500'
+                          }`}
+                        ></motion.div>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-xs text-gray-500">0%</span>
+                        <span className={`text-xs font-semibold ${
+                          percentage >= 100 ? 'text-red-600' :
+                          percentage >= 80 ? 'text-yellow-600' :
+                          'text-green-600'
+                        }`}>
+                          {percentage.toFixed(0)}%
+                        </span>
+                        <span className="text-xs text-gray-500">100%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setConfigModalApp(app)}
+                    className="px-3 md:px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-2 flex-shrink-0"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="font-medium hidden sm:inline">Cấu hình</span>
+                  </motion.button>
                 </div>
-               </div>
-             </motion.div>
-           );
-         })}
-      </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
-      {filteredApps.length === 0 && (
+      {!loading && !error && filteredApps.length === 0 && (
         <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Search className="w-8 h-8 text-gray-400" />
@@ -297,41 +314,37 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
         </div>
       )}
 
-      {/* Dialog / Modal */}
-      <AnimatePresence>
-        {dialog.open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center"
-          >
-            <div className="absolute inset-0 bg-black/40" onClick={closeDialog} />
-            <motion.div
-              initial={{ scale: 0.95, y: 10, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.95, y: 10, opacity: 0 }}
-              className="relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 p-6 z-10"
-            >
-              <div className="flex items-start gap-3">
-                <div className={`flex-shrink-0 rounded-full p-2 ${dialog.kind === 'error' ? 'bg-red-100 text-red-600' : dialog.kind === 'success' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                  <Tag className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{dialog.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{dialog.message}</p>
-                </div>
-                <button onClick={closeDialog} className="text-gray-400 hover:text-gray-600 ml-3">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="mt-5 text-right">
-                <button onClick={closeDialog} className="px-4 py-2 bg-gray-100 rounded-md text-sm text-gray-700 hover:bg-gray-200">Đóng</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {configModalApp && (
+        <AppConfigModal
+          isOpen={!!configModalApp}
+          onClose={() => setConfigModalApp(null)}
+          app={{
+            id: configModalApp.app_id.toString(),
+            name: configModalApp.app_name,
+            icon: configModalApp.icon_base64
+              ? (
+                <img
+                  src={`data:image/png;base64,${configModalApp.icon_base64}`}
+                  alt={configModalApp.app_name}
+                  className="w-8 h-8 rounded-md object-contain"
+                />
+              )
+              : '📦',
+            category: 'Application',
+            usageToday: configModalApp.policy?.today_usage_minutes || 0,
+            lastUsed: 'Hôm nay',
+            deviceId: selectedDeviceId || ''
+          }}
+          config={{
+            limitEnabled: configModalApp.policy?.limit_enabled || false,
+            limitMinutes: configModalApp.policy?.limit_minutes || 60,
+            actionOnLimit: configModalApp.policy?.action_on_limit || 'none',
+            warnInterval: configModalApp.policy?.warn_interval || 3,
+            isBlocked: configModalApp.policy?.is_blocked || false
+          }}
+          onSave={(config) => handleSaveConfig(configModalApp.app_id, config)}
+        />
+      )}
     </div>
   );
 }

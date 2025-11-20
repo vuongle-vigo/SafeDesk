@@ -181,7 +181,6 @@ bool SafeDeskTray::InitPipeServer() {
                         DeleteFileA(sPath.c_str());
                         command_set.erase(std::stoi(command_id));
 					}
-                    
                 }
             }
         }

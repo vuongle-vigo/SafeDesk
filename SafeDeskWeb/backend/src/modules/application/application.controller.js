@@ -29,7 +29,7 @@ async function addApplication(req, res) {
 
         return res.json({
             message: 'Application data sent successfully',
-            serverResponse: data.serverResponse
+            serverResponse: data
         });
 
     } catch (error) {
@@ -47,6 +47,7 @@ async function getApplicationsUsageByTimeRange(req, res) {
             applicationsUsage: applicationsUsage
         });
     } catch (error) {
+        console.debug("Error in getApplicationsUsageByTimeRange:", error);
         return res.status(400).json({ error: error.message });
     }   
 }
