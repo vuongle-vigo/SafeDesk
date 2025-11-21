@@ -45,6 +45,9 @@
     <Filter Include="BrowserHistory">
       <UniqueIdentifier>{3eaa1ce6-3843-45e9-bf1b-c11355cfe213}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Policies">
+      <UniqueIdentifier>{51e99c76-f3de-4571-b548-e5f3fdd5c2e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -89,6 +92,9 @@
     <ClCompile Include="BrowserHistory.cpp">
       <Filter>BrowserHistory</Filter>
     </ClCompile>
+    <ClCompile Include="Policies.cpp">
+      <Filter>Policies</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMonitor.h">
@@ -126,6 +132,9 @@
     </ClInclude>
     <ClInclude Include="BrowserHistory.h">
       <Filter>BrowserHistory</Filter>
+    </ClInclude>
+    <ClInclude Include="Policies.h">
+      <Filter>Policies</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,28 +1,167 @@
 import { Calendar, AlertTriangle, Power, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { mockDailySchedules } from '../data/mockData';
+import { useState, useEffect } from 'react';
 import { DailySchedule } from '../types';
+import { mockAPI } from '../utils/api';
 
-export default function Limits() {
-  const [schedules, setSchedules] = useState<DailySchedule[]>(mockDailySchedules);
+interface LimitProps {
+  selectedDeviceId?: string;
+}
+
+export default function Limits({ selectedDeviceId }: LimitProps) {
+  const [schedules, setSchedules] = useState<DailySchedule[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
   const [warningEnabled, setWarningEnabled] = useState(true);
   const [shutdownEnabled, setShutdownEnabled] = useState(false);
 
-  const handleToggleSchedule = (scheduleId: string) => {
-    setSchedules(schedules.map(s =>
-      s.id === scheduleId ? { ...s, enabled: !s.enabled } : s
-    ));
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token') || null;
+        const policies = await mockAPI.getDailyPolicies(selectedDeviceId ?? 'local', token);
+
+        const dayMap: Record<string, string> = {
+          mon: 'Thứ hai',
+          tue: 'Thứ ba',
+          wed: 'Thứ tư',
+          thu: 'Thứ năm',
+          fri: 'Thứ sáu',
+          sat: 'Thứ bảy',
+          sun: 'Chủ nhật'
+        };
+
+        const arr = Array.isArray(policies) ? policies : [];
+
+        const anyWarn = arr.some((p: any) => Number(p.warn_on_exceed) === 1);
+        const anyShutdown = arr.some((p: any) => Number(p.shutdown_on_exceed) === 1);
+        if (mounted) {
+          setWarningEnabled(Boolean(anyWarn));
+          setShutdownEnabled(Boolean(anyShutdown));
+        }
+
+        const parsed: DailySchedule[] = arr.map((it: any, idx: number) => {
+          const id = String(it.id ?? it._id ?? `policy-${idx}`);
+
+          const dow = (it.day_of_week || it.day || '').toString().toLowerCase();
+          const dayName = dayMap[dow] ?? it.day_name ?? `Ngày ${idx + 1}`;
+
+          const enabled = Number(it.enabled) === 1 || it.enabled === true;
+
+          let startTime = '08:00';
+          let endTime = '20:00';
+          const hours = Array.isArray(it.allowed_hours) && it.allowed_hours.length ? it.allowed_hours[0] : null;
+          if (typeof hours === 'string' && hours.includes('-')) {
+            const [s, e] = hours.split('-').map((x: string) => x.trim());
+            if (s) startTime = s;
+            if (e) endTime = e;
+          }
+
+          return {
+            id,
+            dayName,
+            enabled,
+            startTime,
+            endTime
+          } as DailySchedule;
+        });
+
+        if (mounted) setSchedules(parsed);
+      } catch (err) {
+        console.error('Failed to load daily policies', err);
+        if (mounted) setSchedules([]); // fallback empty
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedDeviceId]);
+
+  const handleToggleSchedule = async (scheduleId: string) => {
+    // optimistic update
+    const prev = schedules;
+    const next = schedules.map(s => s.id === scheduleId ? { ...s, enabled: !s.enabled } : s);
+    setSchedules(next);
+
+    // prepare payload for API: enabled as 1/0 and allowed_hours from start/end
+    const s = next.find(x => x.id === scheduleId);
+    if (!s) return;
+    const payload = {
+      enabled: s.enabled ? 1 : 0,
+      allowed_hours: [`${s.startTime}-${s.endTime}`]
+    };
+
+    try {
+      const token = localStorage.getItem('token') || null;
+      await mockAPI.updateDailyPolicy(selectedDeviceId ?? 'local', scheduleId, payload, token);
+    } catch (err) {
+      console.error('Failed to update schedule toggle, rolling back', err);
+      setSchedules(prev); // rollback on error
+    }
   };
 
-  const handleUpdateScheduleTime = (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
-    setSchedules(schedules.map(s =>
-      s.id === scheduleId ? { ...s, [field]: value } : s
-    ));
+  const handleUpdateScheduleTime = async (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
+    // optimistic update
+    const prev = schedules;
+    const next = schedules.map(s => s.id === scheduleId ? { ...s, [field]: value } : s);
+    setSchedules(next);
+
+    const s = next.find(x => x.id === scheduleId);
+    if (!s) return;
+    const payload = {
+      // keep enabled as 1/0
+      enabled: s.enabled ? 1 : 0,
+      allowed_hours: [`${s.startTime}-${s.endTime}`]
+    };
+
+    try {
+      const token = localStorage.getItem('token') || null;
+      await mockAPI.updateDailyPolicy(selectedDeviceId ?? 'local', scheduleId, payload, token);
+    } catch (err) {
+      console.error('Failed to update schedule time, rolling back', err);
+      setSchedules(prev); // rollback on error
+    }
+  };
+
+  // Toggle global warn on exceed -> POST /actions { type: 'warn_on_exceed', enable: 1/0 }
+  const handleToggleWarning = async (newValue?: boolean) => {
+    const prev = warningEnabled;
+    const nextVal = typeof newValue === 'boolean' ? newValue : !warningEnabled;
+    setWarningEnabled(nextVal);
+
+    try {
+      const token = localStorage.getItem('token') || null;
+      await mockAPI.sendAgentAction(selectedDeviceId ?? 'local', { warn_on_exceed: nextVal ? 1 : 0, shutdown_on_exceed: shutdownEnabled ? 1 : 0 }, token);
+    } catch (err) {
+      console.error('Failed to update warn_on_exceed, rolling back', err);
+      setWarningEnabled(prev);
+    }
+  };
+
+  // Toggle global shutdown on exceed -> POST /actions { type: 'shutdown_on_exceed', enable: 1/0 }
+  const handleToggleShutdown = async (newValue?: boolean) => {
+    const prev = shutdownEnabled;
+    const nextVal = typeof newValue === 'boolean' ? newValue : !shutdownEnabled;
+    setShutdownEnabled(nextVal);
+
+    try {
+      const token = localStorage.getItem('token') || null;
+      await mockAPI.sendAgentAction(selectedDeviceId ?? 'local', { warn_on_exceed: warningEnabled ? 1 : 0, shutdown_on_exceed: nextVal ? 1 : 0 }, token);
+    } catch (err) {
+      console.error('Failed to update shutdown_on_exceed, rolling back', err);
+      setShutdownEnabled(prev);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* optional loading indicator */}
+      {loading && <div className="text-sm text-gray-500">Đang tải lịch sử sử dụng...</div>}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lịch sử dụng hàng ngày</h1>
@@ -44,7 +183,7 @@ export default function Limits() {
               <input
                 type="checkbox"
                 checked={warningEnabled}
-                onChange={(e) => setWarningEnabled(e.target.checked)}
+                onChange={() => handleToggleWarning()}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
@@ -74,7 +213,7 @@ export default function Limits() {
               <input
                 type="checkbox"
                 checked={shutdownEnabled}
-                onChange={(e) => setShutdownEnabled(e.target.checked)}
+                onChange={() => handleToggleShutdown()}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>

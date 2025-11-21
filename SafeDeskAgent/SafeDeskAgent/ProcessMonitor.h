@@ -19,11 +19,13 @@ public:
 	bool CheckBlockApp(std::string& sProcessPath);
 	void ListRunningProcesses();
 	BOOL StopProcess(const std::wstring sProcessName);
+	BOOL KillProcessById(DWORD dwProcessId);
 	std::string GetProcessPath(DWORD dwProcessId);
-	bool SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle);
+	bool SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle, int processID);
 	bool CheckProcessIsRunning(std::wstring wsProcessName);
 private:
 	typedef struct _ProcessInfo {
+		int m_processID;
 		std::string m_sProcessPath;
 		std::wstring m_wsProcessTitle;
 		std::wstring m_wsCurrentWindowTitle;

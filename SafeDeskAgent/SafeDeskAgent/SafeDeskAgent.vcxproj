@@ -141,6 +141,7 @@
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="HttpClient.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Policies.cpp" />
     <ClCompile Include="PowerMonitor.cpp" />
     <ClCompile Include="ProcessMonitor.cpp" />
     <ClCompile Include="SafeDeskTray.cpp" />
@@ -155,6 +156,7 @@
     <ClInclude Include="ComputerInfo.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="HttpClient.h" />
+    <ClInclude Include="Policies.h" />
     <ClInclude Include="PowerMonitor.h" />
     <ClInclude Include="ProcessMonitor.h" />
     <ClInclude Include="SafeDeskTray.h" />

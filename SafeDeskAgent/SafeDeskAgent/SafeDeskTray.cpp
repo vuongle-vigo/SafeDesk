@@ -154,14 +154,18 @@ bool SafeDeskTray::InitPipeServer() {
                     size_t sep2 = message.find(L'|', sep1 + 1);
                     if (sep2 != std::wstring::npos) {
                         std::wstring data2 = message.substr(sep1 + 1, sep2 - sep1 - 1);
-                        std::wstring data3 = message.substr(sep2 + 1);
+						size_t sep3 = message.find(L'|', sep2 + 1);
+                        if (sep3 != std::wstring::npos) {
+                            std::wstring data3 = message.substr(sep2 + 1, sep3 - sep2 - 1);
+							std::wstring data4 = message.substr(sep3 + 1);
+                            std::string sProcessPath = std::string(data3.begin(), data3.end());
 
-						std::string sProcessPath = std::string(data3.begin(), data3.end());
-
-                        processMonitor.SetInfoProcess(
-                            ToLowercase(CleanProcessPath(sProcessPath)),
-                            data2
-                        );
+                            processMonitor.SetInfoProcess(
+                                ToLowercase(CleanProcessPath(sProcessPath)),
+                                data2, 
+								std::stoi(std::string(data4.begin(), data4.end()))
+                            );
+                        }
                     }
 				}
                 else if (data1 == APPDATA_LABEL) {

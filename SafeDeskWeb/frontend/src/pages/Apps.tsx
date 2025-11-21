@@ -54,7 +54,6 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
     }
   }, [selectedDeviceId, selectedDate]);
 
-  // <-- thêm helper để format ngày theo timezone local (tránh mất 1 ngày do toISOString -> UTC)
   const formatDateLocal = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -79,6 +78,7 @@ export default function Apps({ selectedDeviceId }: AppsProps) {
         null;
         
       const data = await mockAPI.getAppsWithPolicies(selectedDeviceId, timeStart, timeEnd, token);
+      console.log('Loaded apps data:', data);
       setApps(data);
     } catch (err) {
       console.error('Failed to load apps:', err);

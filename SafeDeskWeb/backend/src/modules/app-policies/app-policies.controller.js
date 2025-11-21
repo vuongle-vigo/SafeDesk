@@ -15,6 +15,22 @@ async function getAppPoliciesByAgentId(req, res) {
     }
 }
 
+async function getAppPoliciesFromAgent(req, res) {
+    try {
+        const agentId = req.headers['x-agent-id'];
+        if (!agentId) {
+            return res.status(400).json({ error: 'Agent ID is required' });
+        }
+        
+        const appPolicies = await appPoliciesService.getAppPoliciesFromAgent(agentId);
+        return res.json(appPolicies);
+
+    } catch (error) {
+        console.error('Failed to get app policies from agent:', error);
+        return res.status(400).json({ error: error.message });
+    }
+}
+
 async function updateAppPoliciesByAppId(req, res) {
     try {
         const agentId = req.params.agentId;
@@ -69,4 +85,4 @@ async function updateAppPoliciesByAppId(req, res) {
 }
 
 
-module.exports = { getAppPoliciesByAgentId, updateAppPoliciesByAppId };
+module.exports = { getAppPoliciesByAgentId, updateAppPoliciesByAppId, getAppPoliciesFromAgent };

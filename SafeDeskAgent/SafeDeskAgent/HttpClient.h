@@ -13,6 +13,8 @@ using namespace httplib;
 #define API_PROCESS_USAGE_POST		"/api/agents/process-usage"
 #define API_COMMANDS_POLLING		"/api/agents/commands-polling"
 #define API_SCREENSHOT_POST			"/api/agents/capture-screen"
+#define API_APP_POLICIES_GET		"/api/agents/app-policies"
+#define API_DAILY_POLICIES_GET		"/api/agents/daily-policies"
 
 class HttpClient {
 public:
@@ -20,6 +22,8 @@ public:
 	~HttpClient();
 	static HttpClient& GetInstance();
 	json GetCommandsPolling();
+	json GetAppPolicies();
+	json GetDailyPolicies();
 	json SendRequestRegister(LPCSTR pszInstallerToken);
 	bool SendRequestGetToken(LPCSTR pszUserName, LPCSTR pszPassword);
 	bool SendRequestGetPolling();

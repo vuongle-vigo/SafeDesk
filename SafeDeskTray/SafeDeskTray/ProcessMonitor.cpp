@@ -2,14 +2,13 @@
 #include <psapi.h> 
 #include <tlhelp32.h>
 
-std::string GetActiveWindowProcessPath() {
+std::string GetActiveWindowProcessPath(DWORD* processID) {
     HWND hwnd = GetForegroundWindow();
     if (hwnd == NULL) return "";
 
-    DWORD processID;
-    GetWindowThreadProcessId(hwnd, &processID);
+    GetWindowThreadProcessId(hwnd, processID);
 
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processID);
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, *processID);
     if (hProcess == NULL) return "";
 
     TCHAR processName[MAX_PATH] = TEXT("<unknown>");

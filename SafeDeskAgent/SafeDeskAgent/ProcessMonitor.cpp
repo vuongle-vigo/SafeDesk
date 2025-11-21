@@ -3,6 +3,7 @@
 #include "Config.h"
 #include <thread>
 #include "SafeDeskTray.h"
+#include "Policies.h"
 
 ProcessMonitor::ProcessMonitor() {
     m_processInfo.m_fTimeUsage = 0.0;
@@ -112,6 +113,21 @@ std::string ProcessMonitor::GetProcessPath(DWORD dwProcessId) {
 #endif
 }
 
+BOOL ProcessMonitor::KillProcessById(DWORD dwProcessId) {
+	HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, dwProcessId);
+	if (!hProcess) {
+		PRINT_API_ERR("OpenProcess");
+		return FALSE;
+	}
+	if (!TerminateProcess(hProcess, 0)) {
+		PRINT_API_ERR("TerminateProcess");
+		CloseHandle(hProcess);
+		return FALSE;
+	}
+	CloseHandle(hProcess);
+	return TRUE;
+}
+
 BOOL ProcessMonitor::StopProcess(const std::wstring sProcessName) {
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE) {
@@ -156,35 +172,73 @@ BOOL ProcessMonitor::StopProcess(const std::wstring sProcessName) {
     return result;
 }
 
-bool ProcessMonitor::SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle) {
+bool ProcessMonitor::SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle, int processID) {
     m_processInfo.m_sCurrentProcessPath = sProcessPath;
     m_processInfo.m_wsCurrentWindowTitle = wsProcessTitle;
+	m_processInfo.m_processID = processID;
     return true;
 }
 
 bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
-    ConfigMonitor& configMonitor = ConfigMonitor::GetInstance();
-    ConfigMonitor::ConfigData configData = configMonitor.GetConfig();
-    ConfigMonitor::AppConfig configApps = configData.config_apps;
-    SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
-    std::string path = ToLowercase(RemoveQuotes(sProcessPath));
-    for (const auto& app : configApps.blocked) {
-        std::string pathCheck = ToLowercase(RemoveQuotes(app.app_id));
-        if (path.find(pathCheck) == 0) {
-            std::wcout << L"Blocked App Detected: " << pathCheck.c_str() << std::endl;
-            std::string message = "Blocked App Detected: " + path;
-            /* std::thread([message]() {
-                 MessageBoxA(
-                     NULL,
-                     message.c_str(),
-                     "App Blocked",
-                     MB_OK | MB_ICONWARNING
-                 );
-                 }).detach();*/
-            safeDeskTray.SendMessageToTray(StringToWstring(message));
-            return true; // Blocked app found
-        }
+	Policies& policies = Policies::GetInstance();
+	std::string sProcessDir = GetProcessDir(sProcessPath);
+	if (sProcessDir.empty())
+		return false;
+	AppPolicy appPolicy = policies.getAppPolicy(sProcessDir);
+    LogToFile("Result: " + appPolicy.install_location);
+    if (appPolicy.app_id == 0) {
+        return false;
     }
+	std::string processName = GetProcessName(sProcessPath);
+    SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
+    if (appPolicy.is_blocked == 1) {
+		return KillProcessById(m_processInfo.m_processID);
+    }
+
+    if (appPolicy.action_on_limit == "none") {
+        return true;
+    }
+    else if (appPolicy.action_on_limit == "warn") {
+        std::wcout << L"Warn App Detected: " << sProcessPath.c_str() << std::endl;
+        std::string message = "Warn App Detected: " + sProcessPath;
+        /*std::thread([message]() {
+            MessageBoxA(
+                NULL,
+                message.c_str(),
+                "App Warning",
+                MB_OK | MB_ICONWARNING
+            );
+            }).detach();*/
+        safeDeskTray.SendMessageToTray(StringToWstring(message));
+        return true; // Warn app found
+    }
+    else if (appPolicy.action_on_limit == "close") {
+        std::string message = "Warn App Detected: " + sProcessPath + "\nStop app now!!!";
+        /*std::thread([message]() {
+            MessageBoxA(
+                NULL,
+                message.c_str(),
+                "App Warning",
+                MB_OK | MB_ICONWARNING
+            );
+            }).detach();*/
+        safeDeskTray.SendMessageToTray(StringToWstring(message));
+        return KillProcessById(m_processInfo.m_processID);
+    }
+
+
+    //std::wcout << L"Blocked App Detected: " << pathCheck.c_str() << std::endl;
+    //std::string message = "Blocked App Detected: " + path;
+    ///* std::thread([message]() {
+    //     MessageBoxA(
+    //         NULL,
+    //         message.c_str(),
+    //         "App Blocked",
+    //         MB_OK | MB_ICONWARNING
+    //     );
+    //     }).detach();*/
+    //safeDeskTray.SendMessageToTray(StringToWstring(message));
+    return true; // Blocked app found
 }
 
 void ProcessMonitor::MonitorProcessUsage() {
@@ -193,7 +247,11 @@ void ProcessMonitor::MonitorProcessUsage() {
     std::string sTime;
     while (1) {
         //std::wstring wsActiveWindowTitle = GetActiveWindowTitle();
-        CheckBlockApp(m_processInfo.m_sProcessPath);
+		if (CheckBlockApp(m_processInfo.m_sProcessPath)) {
+			Sleep((int)m_fTimeDelayQuery);
+			continue;
+		}
+
         if (m_processInfo.m_wsProcessTitle != m_processInfo.m_wsCurrentWindowTitle && !m_processInfo.m_wsCurrentWindowTitle.empty()) {
             sTime = GetCurrentTimeHour();
             m_processInfo.m_wsProcessTitle = m_processInfo.m_wsCurrentWindowTitle;

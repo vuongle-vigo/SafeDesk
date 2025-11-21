@@ -632,7 +632,7 @@ export const mockAPI = {
       // Merge apps with policies
       return apps?.applications.map(app => ({
         ...app,
-        policy: policyMap.get(app.installed_app_id)
+        policy: policyMap.get(app.app_id)
       }));
     }
     catch (error) {
@@ -682,5 +682,69 @@ export const mockAPI = {
     }
   },
 
+  updateDailyPolicy: async (agentId: string, policyId: string | number, body: any, token?: string): Promise<{ success: boolean; data?: any; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-};
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/daily-policies/${encodeURIComponent(String(policyId))}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to update daily policy' };
+      }
+      return { success: true, data };
+    } catch (err: any) {
+      // offline/mock fallback: log and simulate success
+      console.log(`Mock updateDailyPolicy agent=${agentId} id=${policyId}`, body);
+      return new Promise(resolve => setTimeout(() => resolve({ success: true, data: { ...body, id: policyId } }), 300));
+    }
+  },
+
+  getDailyPolicies: async (agentId: string, token?: string): Promise<any[]> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/daily-policies`, {
+        method: 'GET',
+        headers
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Failed to fetch daily policies');
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching daily policies:', error);
+      throw error;
+    }
+  },
+
+  // Send generic action to agent (POST /api/agents/:agentId/actions)
+  sendAgentAction: async (agentId: string, action: { type: string; payload?: any }, token?: string): Promise<{ success: boolean; data?: any; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/daily-policies/actions`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(action)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to send agent action' };
+      }
+      return { success: true, data };
+    } catch (err: any) {
+      // offline/mock fallback: log and simulate success
+      console.log(`Mock sendAgentAction agent=${agentId}`, action);
+      return new Promise(resolve => setTimeout(() => resolve({ success: true, data: { ...action } }), 250));
+    }
+  },
+}

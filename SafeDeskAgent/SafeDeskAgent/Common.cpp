@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "Common.h"
 #include <iostream>
 #include <cstdio>
@@ -9,6 +11,8 @@
 #include <fstream>
 #include <windows.h>
 #include <shlobj.h>
+
+using namespace std::chrono;
 
 std::string GetCurrentDate() {
 	// Get current time
@@ -26,6 +30,16 @@ std::string GetCurrentDate() {
 	std::ostringstream dateStream, timeStream;
 	dateStream << std::put_time(&now_tm, "%Y-%m-%d");
 	return dateStream.str();
+}
+
+int GetWeekDay() {
+	time_t t = time(nullptr);
+	tm* now = localtime(&t);
+
+	int w = now->tm_wday; // 0 = Sunday, 1 = Monday ... 6 = Saturday
+
+	std::cout << "tm_wday = " << w << std::endl;
+	return w;
 }
 
 std::string GetCurrentTimeHour() {
@@ -160,6 +174,23 @@ std::string RemoveTrailingSplash(const std::string& input) {
 	}
 	return input;
 }
+
+std::string GetProcessDir(const std::string& processPath) {
+	size_t pos = processPath.find_last_of("\\");
+	if (pos == std::string::npos) {
+		return ""; 
+	}
+	return processPath.substr(0, pos);
+}
+
+std::string GetProcessName(const std::string& processPath) {
+	size_t pos = processPath.find_last_of("\\");
+	if (pos == std::string::npos) {
+		return processPath;
+	}
+	return processPath.substr(pos + 1);
+}
+
 
 void LogToFile(const std::string& message, const std::wstring& filePath) {
 	std::wstring logDir = GetCurrentDir() + L"\\" + LOG_FILE;

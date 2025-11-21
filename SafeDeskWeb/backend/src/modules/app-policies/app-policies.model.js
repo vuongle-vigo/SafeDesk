@@ -12,6 +12,18 @@ async function getAppPoliciesByAgentId(agentId) {
     return result;
 }
 
+async function getAppPoliciesFromAgent(agentId) {
+    const result = await query(
+        `SELECT p.*, a.install_location
+            FROM app_policies p
+            JOIN installed_apps a ON a.id = p.installed_app_id
+            WHERE a.agent_id = ?;
+        `,
+        [agentId]
+    );
+    return result;
+}
+
 async function updateAppPoliciesByAppId(installed_app_id, is_blocked, limit_enabled, limit_minutes, action_on_limit, warn_interval) {
     const sql = `
         INSERT INTO app_policies 
@@ -34,4 +46,6 @@ async function updateAppPoliciesByAppId(installed_app_id, is_blocked, limit_enab
     return result;
 }
 
-module.exports = { getAppPoliciesByAgentId, updateAppPoliciesByAppId };
+
+
+module.exports = { getAppPoliciesByAgentId, updateAppPoliciesByAppId, getAppPoliciesFromAgent };

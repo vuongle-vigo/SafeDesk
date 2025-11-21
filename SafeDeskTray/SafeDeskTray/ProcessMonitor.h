@@ -3,5 +3,5 @@
 #include <string>
 #include <windows.h>
 
-std::string GetActiveWindowProcessPath();
+std::string GetActiveWindowProcessPath(DWORD* processID);
 std::wstring GetActiveWindowTitle();

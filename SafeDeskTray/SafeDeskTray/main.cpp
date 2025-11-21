@@ -1,5 +1,5 @@
-#include "PipeConnection.h"
 #include "ProcessMonitor.h"
+#include "PipeConnection.h"
 #include <thread>
 #include <string>
 #include <iostream>
@@ -24,11 +24,14 @@ void ThreadProcessMonitor() {
 	std::wstring appDataPath = GetLocalAppDataPath();
 	PipeConnection& pipeConnection = PipeConnection::GetInstance();
 	while (1) {
-		std::string processPath = GetActiveWindowProcessPath();
+		DWORD processID = 0;
+		std::string processPath = GetActiveWindowProcessPath(&processID);
 		std::wstring windowTitle = GetActiveWindowTitle();
-		//std::cout << "Process path: " << processPath << std::endl;
+		std::cout << "Process path: " << processPath << std::endl;
+		std::wcout << L"Window title: " << windowTitle << std::endl;
 		if (!processPath.empty() && !windowTitle.empty()) {
-			std::wstring message = std::wstring(PRORCESS_LABLE) + L"|" + windowTitle + L"|" + std::wstring(processPath.begin(), processPath.end()) + L"\0";
+			std::wstring message = std::wstring(PRORCESS_LABLE) + L"|" + windowTitle + L"|" + std::wstring(processPath.begin(), processPath.end()) + L"|" + std::to_wstring(processID) + L"\0";
+			std::wcout << L"Sending message: " << message << std::endl;
 			if (!pipeConnection.SendMessageToServer(message)) {
 				std::cerr << "Failed to send message to server." << std::endl;
 			}

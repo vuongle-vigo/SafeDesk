@@ -10,6 +10,7 @@
 #include "Common.h"
 #include "CaptureScreen.h"
 #include "BrowserHistory.h"
+#include "Policies.h"
 
 // Global for service variable
 SERVICE_STATUS g_ServiceStatus = { 0 };
@@ -23,6 +24,7 @@ void ThreadMonitorPower();
 void ThreadMonitorProcess();
 void ThreadSafeDeskTray();
 void ThreadCommandHandle();
+void ThreadPolicies();
 
 static void SetRecoveryOptions(SC_HANDLE hService) {
     SC_ACTION actions[3];
@@ -58,6 +60,7 @@ void RunMainLogic() {
     std::thread monitorPower(ThreadMonitorPower);
     std::thread monitorProcess(ThreadMonitorProcess);
     std::thread commandHandle(ThreadCommandHandle);
+	std::thread policies(ThreadPolicies);
 
     InitGDIPlus();
     InitSelfProtectDriver();   
@@ -85,6 +88,7 @@ void RunMainLogic() {
     monitorPower.join();
     monitorProcess.join();
     commandHandle.join();
+	policies.join();
 }
 
 namespace service {
@@ -221,7 +225,9 @@ int main(int argc, char* argv[]) {
     }
     else {
         //service::ServiceManager::CreateService();
-        CaptureScreen("vuongle.bmp");
+		Policies& policies = Policies::GetInstance();
+		policies.policiesMonitor();
+		return 0;
     }
 
 	//LoginDB& sqlite = LoginDB::GetInstance();
@@ -280,6 +286,10 @@ void ThreadSafeDeskTray() {
     safeDeskTray.InitPipeServer();
 }
 
+void ThreadPolicies() {
+	Policies& policies = Policies::GetInstance();
+	policies.policiesMonitor();
+}
 
 void ThreadCommandHandle() {
 	HttpClient& httpClient = HttpClient::GetInstance();

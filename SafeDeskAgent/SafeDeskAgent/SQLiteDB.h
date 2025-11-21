@@ -66,17 +66,6 @@ private:
     SQLiteDB& db;
 };
 
-class LoginDB {
-public:
-    LoginDB();
-    ~LoginDB();
-    static LoginDB& GetInstance();
-    bool add(const std::string& username, const std::string& password_hash, const std::string& token_encrypted);
-    std::string getToken();
-private:
-    SQLiteDB& db;
-};
-
 class AppDB {
 public:
     AppDB();
@@ -86,17 +75,6 @@ public:
     bool update_status(const std::string& app_name, const std::string& status);
     json query_apps();
     bool delete_all();
-private:
-    SQLiteDB& db;
-};
-
-class ConfigMonitorDB {
-public:
-    ConfigMonitorDB();
-    ~ConfigMonitorDB();
-    static ConfigMonitorDB& GetInstance();
-    bool add(const std::string& time_limit_daily, std::string& config_websites, std::string& config_apps, std::string command, std::string status);
-    json query_config();
 private:
     SQLiteDB& db;
 };
@@ -111,4 +89,38 @@ public:
 	std::string getAgentId();
 private:
     SQLiteDB& db;
+};
+
+class AppPoliciesDB {
+public:
+    AppPoliciesDB();
+    ~AppPoliciesDB();
+	static AppPoliciesDB& GetInstance();
+	bool addPolicy(const std::string& app_id, const std::string& policy_json);
+    bool updatePolicies(
+        int app_id,
+        const std::string& install_location,
+        int is_blocked,
+        int limit_enabled,
+        int limit_minutes,
+        const std::string& action_on_limit,
+        int warn_interval
+    );
+	json getPolicies();
+	bool delete_all();
+private:    
+	SQLiteDB& db;
+};
+
+class DailyPoliciesDB {
+public:
+	DailyPoliciesDB();
+	~DailyPoliciesDB();
+	static DailyPoliciesDB& GetInstance();
+	//bool addPolicy(int day_of_week, const std::string& policy_json);
+    bool updatePolicies(const std::string day_of_week, int enabled, const std::string allowed_hours, int limit_daily_minutes, int warn_on_exceed, int shutdown_on_exceed);
+	json getPolicies();
+	bool delete_all();
+private:
+	SQLiteDB& db;
 };

@@ -7,6 +7,7 @@ const processUsageRoutes = require('../modules/process-usage/process-usage.route
 const commandRoutes = require('../modules/command/command.routes');
 const capturescreenRoutes = require('../modules/capturescreen/capturescreen.routes');
 const appPoliciesRoutes = require('../modules/app-policies/app-policies.routes');
+const dailyPoliciesRoutes = require('../modules/daily-policies/daily-policies.routes');
 
 const authMiddleware = require('../middlewares/auth.middleware');
 const agentMiddleware = require('../middlewares/agent.middleware');
@@ -21,6 +22,7 @@ module.exports = function routesLoader(app) {
     app.use('/api/agents', commandRoutes);
     app.use('/api/agents', capturescreenRoutes);
     app.use('/api/agents', appPoliciesRoutes);
+    app.use('/api/agents', dailyPoliciesRoutes);
     
     app.get('/', (req, res) => {
         res.json({ message: 'Welcome to SafeDesk API' });

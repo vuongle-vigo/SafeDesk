@@ -431,52 +431,6 @@ bool PowerUsageDB::update_status(json data) {
     return success;
 }
 
-LoginDB::LoginDB() : db(SQLiteDB::GetInstance()) {}
-
-LoginDB::~LoginDB() {}
-
-LoginDB& LoginDB::GetInstance() {
-    static LoginDB instance;
-    return instance;
-}
-
-bool LoginDB::add(const std::string& username, const std::string& password_hash, const std::string& token_encrypted) {
-    std::string currentDate = GetCurrentDate();
-    std::string currentTime = GetCurrentTimeHour();
-    std::string timeLogin = currentDate + " " + currentTime;
-    const char* sql = "INSERT INTO user_account (username, password_hash, token_encrypted, last_login) VALUES (?, ?, ?, ?);";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        return false;
-    }
-
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
-    sqlite3_bind_text(stmt, 2, password_hash.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
-    sqlite3_bind_text(stmt, 3, token_encrypted.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
-    sqlite3_bind_text(stmt, 4, timeLogin.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
-
-    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
-    sqlite3_finalize(stmt);
-    return success;
-}
-
-std::string LoginDB::getToken() {
-    std::string sql = "SELECT token_encrypted FROM user_account;";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db.getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        return "";
-    }
-
-    std::string token = "";
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char* token_encrypted = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        token = token_encrypted ? token_encrypted : "";
-    }
-
-    sqlite3_finalize(stmt);
-    return token;
-}
-
 AppDB::AppDB() : db(SQLiteDB::GetInstance()) {}
 
 AppDB::~AppDB() {}
@@ -602,103 +556,6 @@ json AppDB::query_apps() {
     return jsonArray;
 }
 
-ConfigMonitorDB::ConfigMonitorDB() : db(SQLiteDB::GetInstance()) {}
-
-ConfigMonitorDB::~ConfigMonitorDB() {}
-
-ConfigMonitorDB& ConfigMonitorDB::GetInstance() {
-    static ConfigMonitorDB instance;
-    return instance;
-}
-
-bool ConfigMonitorDB::add(const std::string& time_limit_daily, std::string& config_websites,
-    std::string& config_apps, std::string command, std::string status) {
-
-    // Compute the current update timestamp
-    std::string currentDate = GetCurrentDate();
-    std::string currentTime = GetCurrentTimeHour();
-    std::string updatedAt = currentDate + " " + currentTime + ":00:00"; // Format: YYYY-MM-DD HH:00:00
-
-    // Delete all existing records since only one config entry is needed
-    const char* deleteSql = "DELETE FROM configs;";
-    sqlite3_stmt* deleteStmt;
-    if (sqlite3_prepare_v2(db.getDB(), deleteSql, -1, &deleteStmt, nullptr) != SQLITE_OK) {
-        return false;
-    }
-    if (sqlite3_step(deleteStmt) != SQLITE_DONE) {
-        sqlite3_finalize(deleteStmt);
-        return false;
-    }
-    sqlite3_finalize(deleteStmt);
-
-    // Insert the new configuration record
-    const char* insertSql = "INSERT INTO configs (time_limit_daily, config_websites, config_apps, command, status, updated_at) "
-        "VALUES (?, ?, ?, ?, ?);";
-    sqlite3_stmt* insertStmt;
-    if (sqlite3_prepare_v2(db.getDB(), insertSql, -1, &insertStmt, nullptr) != SQLITE_OK) {
-        return false;
-    }
-
-    sqlite3_bind_text(insertStmt, 1, time_limit_daily.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(insertStmt, 2, config_websites.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(insertStmt, 3, config_apps.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(insertStmt, 4, command.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(insertStmt, 5, status.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(insertStmt, 6, updatedAt.c_str(), -1, SQLITE_TRANSIENT);
-
-    bool success = (sqlite3_step(insertStmt) == SQLITE_DONE);
-    sqlite3_finalize(insertStmt);
-    return success;
-}
-
-
-json ConfigMonitorDB::query_config() {
-    json result;
-    std::string currentDate = GetCurrentDate();
-    std::string currentTime = GetCurrentTimeHour();
-
-    const char* sql = "SELECT id, time_limit_daily, config_websites, config_apps, updated_at, command, status FROM configs;";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        return result; // Return empty JSON if query fails
-    }
-
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        int id = sqlite3_column_int(stmt, 0);
-        const char* time_limit_daily = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        const char* config_websites = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        const char* config_apps = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        const char* updated_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-        const char* command = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        const char* status = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
-
-        // Extract date and hour from updated_at (format: YYYY-MM-DD HH:MM:SS)
-        std::string updated_at_str = updated_at ? updated_at : "";
-        std::string updated_date = updated_at_str.substr(0, 10); // YYYY-MM-DD
-        std::string updated_hour = updated_at_str.substr(11, 2); // HH
-
-        // Skip records matching current date and hour
-        if (updated_date == currentDate && updated_hour == currentTime) {
-            continue;
-        }
-
-        // Create JSON object for the record
-        json record = {
-            {"id", id},
-            {"time_limit_daily", time_limit_daily ? time_limit_daily : ""},
-            {"config_websites", config_websites ? config_websites : ""},
-            {"config_apps", config_apps ? config_apps : ""},
-            {"updated_at", updated_at ? updated_at : ""},
-            {"status", status ? status : ""}
-        };
-        result.push_back(record);
-    }
-
-    sqlite3_finalize(stmt);
-    return result;
-}
-
-
 TokenDB::TokenDB() : db(SQLiteDB::GetInstance()) {}
 
 TokenDB::~TokenDB() {}
@@ -742,11 +599,248 @@ std::string TokenDB::getAgentId() {
     if (sqlite3_prepare_v2(db.getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         return "";
     }
+
     std::string agentId = "";
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         const char* agent_id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         agentId = agent_id ? agent_id : "";
     }
+
     sqlite3_finalize(stmt);
     return agentId;
+}
+
+AppPoliciesDB::AppPoliciesDB() : db(SQLiteDB::GetInstance()) {}
+
+AppPoliciesDB::~AppPoliciesDB() {}
+
+AppPoliciesDB& AppPoliciesDB::GetInstance() {
+	static AppPoliciesDB instance;
+	return instance;
+}
+
+json AppPoliciesDB::getPolicies() {
+    json result;
+    const char* sql = "SELECT install_location, is_blocked, limit_enabled, limit_minutes, action_on_limit, warn_interval FROM app_policies WHERE limit_enabled = 1 OR is_blocked  = 1";
+	sqlite3_stmt* stmt;
+	if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+		return result; // Return empty JSON if query fails
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		std::string install_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+		int is_blocked = sqlite3_column_int(stmt, 1);
+		int limit_enabled = sqlite3_column_int(stmt, 2);
+		int limit_minutes = sqlite3_column_int(stmt, 3);
+		std::string action_on_limit = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+		int warn_interval = sqlite3_column_int(stmt, 5);
+		result.push_back({
+			{"install_location", install_location},
+			{"is_blocked", is_blocked},
+			{"limit_enabled", limit_enabled},
+			{"limit_minutes", limit_minutes},
+			{"action_on_limit", action_on_limit},
+			{"warn_interval", warn_interval}
+			});
+	}
+
+    return result;
+}
+
+bool AppPoliciesDB::delete_all() {
+	const char* sql = "DELETE FROM app_policies;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
+}
+
+bool AppPoliciesDB::updatePolicies(
+    int app_id,
+    const std::string& install_location,
+    int is_blocked,
+    int limit_enabled,
+    int limit_minutes,
+    const std::string& action_on_limit,
+    int warn_interval
+) {
+    sqlite3* conn = db.getDB();
+    sqlite3_stmt* stmt;
+
+    // Check exists
+    const char* checkSQL = "SELECT COUNT(*) FROM app_policies WHERE app_id = ?;";
+    if (sqlite3_prepare_v2(conn, checkSQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, app_id);
+
+    int exists = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        exists = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    // INSERT
+    if (exists == 0) {
+        const char* insertSQL =
+            "INSERT INTO app_policies "
+            "(app_id, install_location, is_blocked, limit_enabled, limit_minutes, action_on_limit, warn_interval, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'));";
+
+        if (sqlite3_prepare_v2(conn, insertSQL, -1, &stmt, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_int(stmt, 1, app_id);
+        sqlite3_bind_text(stmt, 2, install_location.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 3, is_blocked);
+        sqlite3_bind_int(stmt, 4, limit_enabled);
+        sqlite3_bind_int(stmt, 5, limit_minutes);
+        sqlite3_bind_text(stmt, 6, action_on_limit.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 7, warn_interval);
+
+        bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+        sqlite3_finalize(stmt);
+        return ok;
+    }
+
+    // UPDATE
+    const char* updateSQL =
+        "UPDATE app_policies SET "
+        "install_location = ?, "
+        "is_blocked = ?, "
+        "limit_enabled = ?, "
+        "limit_minutes = ?, "
+        "action_on_limit = ?, "
+        "warn_interval = ?, "
+        "updated_at = strftime('%s', 'now') "
+        "WHERE app_id = ?;";
+
+    if (sqlite3_prepare_v2(conn, updateSQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, install_location.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 2, is_blocked);
+    sqlite3_bind_int(stmt, 3, limit_enabled);
+    sqlite3_bind_int(stmt, 4, limit_minutes);
+    sqlite3_bind_text(stmt, 5, action_on_limit.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 6, warn_interval);
+    sqlite3_bind_int(stmt, 7, app_id);
+
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+
+DailyPoliciesDB::DailyPoliciesDB() : db(SQLiteDB::GetInstance()) {}
+
+DailyPoliciesDB::~DailyPoliciesDB() {}
+
+DailyPoliciesDB& DailyPoliciesDB::GetInstance() {
+	static DailyPoliciesDB instance;
+	return instance;
+}
+
+bool DailyPoliciesDB::updatePolicies(
+    const std::string day_of_week,
+    int enabled,
+    const std::string allowed_hours,
+    int limit_daily_minutes,
+    int warn_on_exceed,
+    int shutdown_on_exceed
+) {
+    sqlite3* conn = db.getDB();
+    sqlite3_stmt* stmt;
+
+    const char* checkSQL = "SELECT COUNT(*) FROM daily_usage_policies WHERE day_of_week = ?;";
+    if (sqlite3_prepare_v2(conn, checkSQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, day_of_week.c_str(), -1, SQLITE_TRANSIENT);
+
+    int exists = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        exists = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    if (exists == 0) {
+        const char* insertSQL =
+            "INSERT INTO daily_usage_policies "
+            "(day_of_week, enabled, allowed_hours, daily_limit_minutes, warn_on_exceed, shutdown_on_exceed, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'));";
+
+        if (sqlite3_prepare_v2(conn, insertSQL, -1, &stmt, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_text(stmt, 1, day_of_week.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, enabled);
+        sqlite3_bind_text(stmt, 3, allowed_hours.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 4, limit_daily_minutes);
+        sqlite3_bind_int(stmt, 5, warn_on_exceed);
+        sqlite3_bind_int(stmt, 6, shutdown_on_exceed);
+
+        bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+        sqlite3_finalize(stmt);
+        return ok;
+    }
+
+    const char* updateSQL =
+        "UPDATE daily_usage_policies SET "
+        "enabled = ?, "
+        "allowed_hours = ?, "
+		"daily_limit_minutes = ?, "
+        "warn_on_exceed = ?, "
+        "shutdown_on_exceed = ?, "
+        "updated_at = strftime('%s','now') "
+        "WHERE day_of_week = ?;";
+
+    if (sqlite3_prepare_v2(conn, updateSQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, enabled);
+    sqlite3_bind_text(stmt, 2, allowed_hours.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 3, warn_on_exceed);
+    sqlite3_bind_int(stmt, 4, limit_daily_minutes);
+    sqlite3_bind_int(stmt, 5, warn_on_exceed);
+    sqlite3_bind_int(stmt, 6, shutdown_on_exceed);
+
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+json DailyPoliciesDB::getPolicies() {
+	json result;
+	const char* sql = "SELECT day_of_week, enabled, allowed_hours, daily_limit_minutes, warn_on_exceed, shutdown_on_exceed FROM daily_usage_policies";
+	sqlite3_stmt* stmt;
+	if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+		return result; // Return empty JSON if query fails
+	}
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		std::string day_of_week = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+		int enabled = sqlite3_column_int(stmt, 1);
+		std::string allowed_hours = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        int daily_limit_minutes = sqlite3_column_int(stmt, 3);
+		int warn_on_exceed = sqlite3_column_int(stmt, 4);
+		int shutdown_on_exceed = sqlite3_column_int(stmt, 5);
+		result.push_back({
+			{"day_of_week", day_of_week},
+			{"enabled", enabled},
+			{"allowed_hours", allowed_hours},
+            {"daily_limit_minutes", daily_limit_minutes},
+			{"warn_on_exceed", warn_on_exceed},
+			{"shutdown_on_exceed", shutdown_on_exceed}
+			});
+	}
+	return result;
 }

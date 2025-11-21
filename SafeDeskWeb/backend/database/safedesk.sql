@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.44, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.41, for Win64 (x86_64)
 --
 -- Host: localhost    Database: safedesk
 -- ------------------------------------------------------
--- Server version	8.0.44
+-- Server version	8.0.41
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -33,7 +33,7 @@ CREATE TABLE `agent_commands` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `completed_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,35 @@ CREATE TABLE `agent_commands` (
 
 LOCK TABLES `agent_commands` WRITE;
 /*!40000 ALTER TABLE `agent_commands` DISABLE KEYS */;
+INSERT INTO `agent_commands` VALUES (1,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','capturescreen','{}','success',NULL,'2025-11-21 01:18:04','2025-11-21 01:18:09',NULL),(2,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','capturescreen','{}','success',NULL,'2025-11-21 01:19:14','2025-11-21 01:19:19',NULL),(3,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','capturescreen','{}','success',NULL,'2025-11-21 09:15:59','2025-11-21 09:16:52',NULL);
 /*!40000 ALTER TABLE `agent_commands` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `agent_screenshots`
+--
+
+DROP TABLE IF EXISTS `agent_screenshots`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `agent_screenshots` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `agent_id` varchar(64) DEFAULT NULL,
+  `command_id` int DEFAULT NULL,
+  `file_path` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `agent_screenshots`
+--
+
+LOCK TABLES `agent_screenshots` WRITE;
+/*!40000 ALTER TABLE `agent_screenshots` DISABLE KEYS */;
+INSERT INTO `agent_screenshots` VALUES (63,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f',NULL,'/screenshots/b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f/1763687889.jpg','2025-11-21 01:18:09'),(64,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f',NULL,'/screenshots/b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f/1763687959.jpg','2025-11-21 01:19:19'),(65,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f',NULL,'/screenshots/b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f/1763716612.jpg','2025-11-21 09:16:52');
+/*!40000 ALTER TABLE `agent_screenshots` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -76,7 +104,7 @@ CREATE TABLE `agents` (
 
 LOCK TABLES `agents` WRITE;
 /*!40000 ALTER TABLE `agents` DISABLE KEYS */;
-INSERT INTO `agents` VALUES ('10602255-cdc9-4396-a6bf-4ab039a2b6de',1,1,'fd537dda819df4acb43ce267b36f684685c0c945194906593bf6206e33eff281','LEVUONG-LAPTOP','1692634b-d6d7-4cbb-92fc-d153f575a2c0','Windows 10.0 (Build 26200)','offline',NULL,'2025-11-14 09:20:32','2025-11-14 09:20:32'),('b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f',1,3,'fb30caede447a7c5ae2fe5cd7ff1bde3247665f4a8f55e981b57733328954713','DESKTOP-4UCI50O','640c4c84-062a-4810-aba8-bbd4905c3a4d','Windows 10.0 (Build 26200)','online','2025-11-20 23:57:09','2025-11-16 11:40:06','2025-11-20 16:57:09');
+INSERT INTO `agents` VALUES ('10602255-cdc9-4396-a6bf-4ab039a2b6de',1,1,'fd537dda819df4acb43ce267b36f684685c0c945194906593bf6206e33eff281','LEVUONG-LAPTOP','1692634b-d6d7-4cbb-92fc-d153f575a2c0','Windows 10.0 (Build 26200)','offline',NULL,'2025-11-14 09:20:32','2025-11-14 09:20:32'),('b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f',1,3,'fb30caede447a7c5ae2fe5cd7ff1bde3247665f4a8f55e981b57733328954713','DESKTOP-4UCI50O','640c4c84-062a-4810-aba8-bbd4905c3a4d','Windows 10.0 (Build 26200)','online','2025-11-21 17:20:02','2025-11-16 11:40:06','2025-11-21 10:20:02');
 /*!40000 ALTER TABLE `agents` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -100,7 +128,7 @@ CREATE TABLE `app_policies` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `installed_app_id` (`installed_app_id`),
   CONSTRAINT `fk_app_policies_installed_app` FOREIGN KEY (`installed_app_id`) REFERENCES `installed_apps` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -109,8 +137,41 @@ CREATE TABLE `app_policies` (
 
 LOCK TABLES `app_policies` WRITE;
 /*!40000 ALTER TABLE `app_policies` DISABLE KEYS */;
-INSERT INTO `app_policies` VALUES (1,2712,0,1,60,'none',3,'2025-11-20 16:27:07','2025-11-20 17:53:48'),(2,2713,0,0,NULL,'none',3,'2025-11-20 16:27:07','2025-11-20 16:27:07'),(3,2714,0,0,NULL,'none',3,'2025-11-20 16:27:07','2025-11-20 16:27:07'),(4,2715,0,0,NULL,'none',3,'2025-11-20 16:27:07','2025-11-20 16:27:07'),(5,2716,0,0,NULL,'none',3,'2025-11-20 16:27:07','2025-11-20 16:27:07'),(6,2717,0,0,NULL,'none',3,'2025-11-20 16:27:07','2025-11-20 16:27:07');
+INSERT INTO `app_policies` VALUES (1,2712,0,1,60,'none',3,'2025-11-20 16:27:07','2025-11-20 17:53:48'),(2,2713,0,0,60,'none',3,'2025-11-20 16:27:07','2025-11-21 07:27:17'),(3,2714,1,0,60,'none',3,'2025-11-20 16:27:07','2025-11-21 08:42:13'),(4,2715,0,0,60,'none',3,'2025-11-20 16:27:07','2025-11-21 07:27:17'),(5,2716,0,0,60,'none',3,'2025-11-20 16:27:07','2025-11-21 07:27:17'),(6,2717,0,0,60,'none',3,'2025-11-20 16:27:07','2025-11-21 07:27:17');
 /*!40000 ALTER TABLE `app_policies` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `daily_usage_policies`
+--
+
+DROP TABLE IF EXISTS `daily_usage_policies`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `daily_usage_policies` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `agent_id` varchar(64) NOT NULL,
+  `day_of_week` enum('mon','tue','wed','thu','fri','sat','sun') NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `limit_daily_minutes` int DEFAULT NULL,
+  `allowed_hours` json DEFAULT NULL,
+  `warn_on_exceed` tinyint(1) NOT NULL DEFAULT '0',
+  `shutdown_on_exceed` tinyint(1) NOT NULL DEFAULT '0',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_agent_day` (`agent_id`,`day_of_week`),
+  CONSTRAINT `daily_usage_policies_ibfk_1` FOREIGN KEY (`agent_id`) REFERENCES `agents` (`agent_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `daily_usage_policies`
+--
+
+LOCK TABLES `daily_usage_policies` WRITE;
+/*!40000 ALTER TABLE `daily_usage_policies` DISABLE KEYS */;
+INSERT INTO `daily_usage_policies` VALUES (8,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','mon',1,300,'[\"08:00-23:00\"]',1,0,'2025-11-21 04:26:30'),(9,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','tue',1,300,'[\"08:00-22:00\"]',1,0,'2025-11-21 04:26:14'),(10,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','wed',1,300,'[\"08:00-22:00\"]',1,0,'2025-11-21 04:26:14'),(11,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','thu',1,300,'[\"08:00-22:00\"]',1,0,'2025-11-21 04:26:14'),(12,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','fri',1,300,'[\"08:00-22:00\"]',1,0,'2025-11-21 04:26:14'),(13,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','sat',1,300,'[\"08:00-22:00\"]',1,0,'2025-11-21 04:26:14'),(14,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','sun',1,300,'[\"08:00-22:00\"]',1,0,'2025-11-21 04:26:14');
+/*!40000 ALTER TABLE `daily_usage_policies` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -191,7 +252,7 @@ CREATE TABLE `power_usage` (
   `hour` int NOT NULL,
   `usage_minutes` int DEFAULT '0',
   PRIMARY KEY (`usage_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -200,7 +261,7 @@ CREATE TABLE `power_usage` (
 
 LOCK TABLES `power_usage` WRITE;
 /*!40000 ALTER TABLE `power_usage` DISABLE KEYS */;
-INSERT INTO `power_usage` VALUES (1,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',8,13),(2,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',10,4),(3,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-16',19,2),(4,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-16',20,20),(5,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-16',22,4),(6,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',3,0),(7,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',6,1),(8,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',7,27),(9,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',17,20),(10,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',18,40),(11,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',19,42),(12,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',20,48),(13,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',0,27),(14,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',1,39),(15,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',18,30),(16,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',19,46),(17,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',10,12),(18,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',11,50),(19,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',14,16),(20,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',15,39),(21,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',16,2),(22,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',17,22),(23,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-20',23,36);
+INSERT INTO `power_usage` VALUES (1,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',8,13),(2,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',10,4),(3,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-16',19,2),(4,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-16',20,20),(5,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-16',22,4),(6,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',3,0),(7,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',6,1),(8,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',7,27),(9,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',17,20),(10,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',18,40),(11,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',19,42),(12,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-17',20,48),(13,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',0,27),(14,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',1,39),(15,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',18,30),(16,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-18',19,46),(17,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',10,12),(18,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',11,50),(19,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',14,16),(20,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',15,39),(21,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',16,2),(22,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-19',17,22),(23,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-20',23,37),(24,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-21',8,37),(25,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-21',15,8),(26,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-21',16,43),(27,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','2025-11-21',17,19);
 /*!40000 ALTER TABLE `power_usage` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -222,7 +283,7 @@ CREATE TABLE `process_usage` (
   `time_usage` double DEFAULT NULL,
   PRIMARY KEY (`usage_id`),
   UNIQUE KEY `uq_usage` (`agent_id`,`process_title`(100),`date_recorded`,`start_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=129 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -231,7 +292,7 @@ CREATE TABLE `process_usage` (
 
 LOCK TABLES `process_usage` WRITE;
 /*!40000 ALTER TABLE `process_usage` DISABLE KEYS */;
-INSERT INTO `process_usage` VALUES (1,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-19','10:51:00',5.8),(4,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Program Manager','c:\\windows\\explorer.exe','c:\\windows','2025-11-19','10:57:00',6.3),(10,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','youtube - Search - Profile 1 - Microsoft​ Edge','c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe','c:\\program files (x86)\\microsoft\\edge\\application','2025-11-19','11:04:00',45.5),(56,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Process Hacker [DESKTOP-Q7ILQ8T\\Darius]','c:\\program files\\process hacker 2\\processhacker.exe','c:\\program files\\process hacker 2','2025-11-19','14:43:00',3.9),(60,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Process Hacker [DESKTOP-Q7ILQ8T\\Darius]','c:\\program files\\process hacker 2\\processhacker.exe','c:\\program files\\process hacker 2','2025-11-19','14:48:00',36.4),(97,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','C:\\Users\\Darius\\Desktop\\SafeDeskTray.exe','c:\\users\\darius\\desktop\\safedesktray.exe','c:\\users\\darius\\desktop','2025-11-19','15:24:00',14),(111,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','C:\\Users\\Darius\\Desktop\\SafeDeskTray.exe','c:\\users\\darius\\desktop\\safedesktray.exe','c:\\users\\darius\\desktop','2025-11-19','17:13:00',6),(117,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Safedesk - Search Results in System32','c:\\windows\\explorer.exe','c:\\windows','2025-11-19','17:20:00',12.4);
+INSERT INTO `process_usage` VALUES (1,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-19','10:51:00',5.8),(4,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Program Manager','c:\\windows\\explorer.exe','c:\\windows','2025-11-19','10:57:00',6.3),(10,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','youtube - Search - Profile 1 - Microsoft​ Edge','c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe','c:\\program files (x86)\\microsoft\\edge\\application','2025-11-19','11:04:00',45.5),(56,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Process Hacker [DESKTOP-Q7ILQ8T\\Darius]','c:\\program files\\process hacker 2\\processhacker.exe','c:\\program files\\process hacker 2','2025-11-19','14:43:00',3.9),(60,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Process Hacker [DESKTOP-Q7ILQ8T\\Darius]','c:\\program files\\process hacker 2\\processhacker.exe','c:\\program files\\process hacker 2','2025-11-19','14:48:00',36.4),(97,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','C:\\Users\\Darius\\Desktop\\SafeDeskTray.exe','c:\\users\\darius\\desktop\\safedesktray.exe','c:\\users\\darius\\desktop','2025-11-19','15:24:00',14),(111,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','C:\\Users\\Darius\\Desktop\\SafeDeskTray.exe','c:\\users\\darius\\desktop\\safedesktray.exe','c:\\users\\darius\\desktop','2025-11-19','17:13:00',6),(117,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Safedesk - Search Results in System32','c:\\windows\\explorer.exe','c:\\windows','2025-11-19','17:20:00',12.4),(129,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','Program Manager','c:\\windows\\explorer.exe','c:\\windows','2025-11-21','08:22:00',32.4),(161,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','New tab - Profile 1 - Microsoft​ Edge','c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe','c:\\program files (x86)\\microsoft\\edge\\application','2025-11-21','15:57:00',3.8),(166,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','New tab - Profile 1 - Microsoft​ Edge','c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe','c:\\program files (x86)\\microsoft\\edge\\application','2025-11-21','16:03:00',1.1),(168,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-21','16:29:00',1),(169,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','sqlite_db','c:\\windows\\explorer.exe','c:\\windows','2025-11-21','16:34:00',6.4),(176,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-21','16:42:00',1.1),(177,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-21','16:47:00',1),(178,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-21','16:48:00',3.1),(181,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','SafeDeskAgent - Notepad','c:\\windows\\system32\\notepad.exe','c:\\windows\\system32','2025-11-21','16:53:00',2),(184,'b707b6c8-ac7b-4ce1-a9ef-5ade1a6a382f','System32','c:\\windows\\explorer.exe','c:\\windows','2025-11-21','16:56:00',15.7);
 /*!40000 ALTER TABLE `process_usage` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -263,6 +324,10 @@ LOCK TABLES `users` WRITE;
 INSERT INTO `users` VALUES (1,'admin@email.com','$2b$10$HUPji68Zq5vX.MqsbxwV1eF5Qq6KdGWM1ynTDbKUXRPxX5/9PlPfC','parent','2025-11-14 06:47:09','2025-11-14 06:47:09'),(2,'admin@safedesk.com','$2b$10$4Up9WiOeZZF/FSkAFU3KdOpb4GeypllpMOmkEd8/2wt2XtFkYpqc6','parent','2025-11-17 07:24:13','2025-11-17 07:24:13');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Dumping events for database 'safedesk'
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -273,4 +338,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-21  0:54:52
+-- Dump completed on 2025-11-21 17:21:22
