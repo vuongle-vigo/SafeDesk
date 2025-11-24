@@ -80,7 +80,6 @@ void RunMainLogic() {
         }
 
         std::this_thread::sleep_for(std::chrono::minutes(1));
-        LogToFile("Updating power and process usage data...");
     }
 
     safeDeskTray.join();
@@ -225,8 +224,12 @@ int main(int argc, char* argv[]) {
     }
     else {
         //service::ServiceManager::CreateService();
-		Policies& policies = Policies::GetInstance();
-		policies.policiesMonitor();
+	/*	Policies& policies = Policies::GetInstance();
+		policies.policiesMonitor();*/
+
+		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+        json history = browserHistory.GetEdgeHistory();
+		std::cout << history.dump(4) << std::endl;
 		return 0;
     }
 
