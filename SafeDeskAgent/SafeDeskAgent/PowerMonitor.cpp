@@ -8,7 +8,9 @@
 #include <windows.h>
 #include "SQLiteDB.h"
 #include <thread>
-//#include "SafeKidsTray.h"
+#include "Policies.h"
+
+#include "SafeDeskTray.h"
 
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -30,10 +32,9 @@ void PowerMonitor::SetTimeUseLimit(DWORD dwTimeUseLimit) {
 }
 
 void PowerMonitor::MonitorPowerUsage() {
-    ConfigMonitor& configMonitor = ConfigMonitor::GetInstance();
-    json config = configMonitor.GetTodayConfig();
     PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
-
+	Policies& policies = Policies::GetInstance();
+    SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
     while (true) {
         std::cout << "Monitoring power usage..." << std::endl;
         int current_hour = atoi(GetCurrentTimeHour().c_str());
@@ -43,62 +44,51 @@ void PowerMonitor::MonitorPowerUsage() {
             << std::setw(2) << std::setfill('0') << current_minute;
         std::string current_time_str = current_time_ss.str(); // e.g., "03:05"
         // Get today's config
-        json config = configMonitor.GetTodayConfig();
-        if (config.is_null() || !config.contains("allowed_time") || !config.contains("max_hours")) {
-            // No config: assume no restrictions
-            std::this_thread::sleep_for(std::chrono::minutes(1));
-            continue;
-        }
+		DailyPolicy configMonitor = policies.getDailyPolicy();
+		if (configMonitor.enabled == 0) {
+			std::this_thread::sleep_for(std::chrono::minutes(1));
+			continue; // Skip if monitoring is disabled for today
+		}
 
-        float max_hours = config["max_hours"].get<float>();
+		float max_hours = (float)configMonitor.limit_daily_minutes / 60.0f;
         bool within_allowed_time = false;
+		std::string ranges_str = configMonitor.allowed_hours;
+		// range time example 9:00-13:00, parse it to int time
+		
+        size_t pos = ranges_str.find('-');
+        std::string startStr = ranges_str.substr(0, pos);
+        std::string endStr = ranges_str.substr(pos + 1);
 
-        std::cout << "Current Time: " << current_time_str << std::endl;
-
-        // Check if current time is within allowed ranges
-        for (const auto& range : config["allowed_time"]) {
-            if (!range.contains("start") || !range.contains("end")) {
-                continue;
-            }
-            std::string start_time = range["start"].get<std::string>(); // e.g., "09:00"
-            std::string end_time = range["end"].get<std::string>();     // e.g., "13:00"
-            std::cout << "Checking range: " << start_time << " - " << end_time << std::endl;
-            // Compare times (HH:MM format)
-            if (current_time_str >= start_time && current_time_str <= end_time) {
-                within_allowed_time = true;
-                break;
-            }
+    
+        if (current_time_str >= startStr && current_time_str <= endStr) {
+            within_allowed_time = true;
+            break;
         }
 
         // Calculate total usage time for today
         double total_usage_minutes = powerUsageDB.query_today();
         double total_usage_hours = total_usage_minutes / 60.0;
 
-        std::cout << "Total Usage Today: " << total_usage_hours << " hours" << std::endl;
-
         // Check for violations and show warnings
         if (!within_allowed_time) {
-            /*std::thread([]() {
-                MessageBoxW(
-                    NULL,
-                    L"Warning: System usage is outside allowed time ranges!",
-                    L"Usage Restriction",
-                    MB_OK | MB_ICONWARNING
-                );
-                }).detach();*/
-            //safeKidsTray.SendMessageToTray(L"Warning: System usage is outside allowed time ranges!");
+			if (configMonitor.shutdown_on_exceed) {
+                safeDeskTray.SendMessageToTray(NOTI_LABEL + std::wstring(L"|Warning: System usage is outside allowed time ranges! System will shutdown after 3 minutes"));
+				std::this_thread::sleep_for(std::chrono::minutes(3));
+                ShutdownPC();
+			} else if (configMonitor.warn_on_exceed) {
+                safeDeskTray.SendMessageToTray(NOTI_LABEL + std::wstring(L"|Warning: System usage is outside allowed time ranges!"));
+			}
         }
 
         if (total_usage_hours > max_hours) {
-            /*std::thread([]() {
-                MessageBoxW(
-                    NULL,
-                    L"Warning: Daily usage limit exceeded!",
-                    L"Usage Restriction",
-                    MB_OK | MB_ICONWARNING
-                );
-                }).detach();*/
-            //safeKidsTray.SendMessageToTray(L"Warning: Daily usage limit exceeded!");
+            if (configMonitor.shutdown_on_exceed) {
+                safeDeskTray.SendMessageToTray(NOTI_LABEL + std::wstring(L"|Warning: Daily usage limit exceeded! System will shutdown after 3 minutes"));
+                std::this_thread::sleep_for(std::chrono::minutes(3));
+                ShutdownPC();
+			}
+			else if (configMonitor.warn_on_exceed) {
+				safeDeskTray.SendMessageToTray(NOTI_LABEL + std::wstring(L"|Warning: Daily usage limit exceeded!"));
+			}   
         }
 
         // Sleep for 1 minute before next check

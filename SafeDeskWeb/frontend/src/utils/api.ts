@@ -39,45 +39,6 @@ interface MergedAppData extends AppUsage {
   policy?: AppPolicy;
 }
 export const mockAPI = {
-  uninstallApp: async (appId: string): Promise<{ success: boolean }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`Uninstalling app with ID: ${appId}`);
-        resolve({ success: true });
-      }, 500);
-    });
-  },
-
-  killProcess: async (processId: string): Promise<{ success: boolean }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`Killing process with ID: ${processId}`);
-        resolve({ success: true });
-      }, 500);
-    });
-  },
-
-  captureScreenshot: async (): Promise<{ success: boolean; url: string }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('Capturing screenshot...');
-        resolve({
-          success: true,
-          url: 'https://images.pexels.com/photos/1181346/pexels-photo-1181346.jpeg?auto=compress&cs=tinysrgb&w=400'
-        });
-      }, 1000);
-    });
-  },
-
-  saveSettings: async (settings: Record<string, unknown>): Promise<{ success: boolean }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('Saving settings:', settings);
-        resolve({ success: true });
-      }, 500);
-    });
-  },
-
   addUsageLimit: async (limit: {
     name: string;
     category: string;
@@ -141,7 +102,7 @@ export const mockAPI = {
   getMe: async (token: string | null): Promise<{ success: boolean; user?: any; error?: string }> => {
     if (!token) return { success: false, error: 'No token' };
     try {
-      const res = await fetch(`${BASE_URL}/api/auth/me`, {
+      const res = await fetch(`${BASE_URL}/api/auth/getme`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +113,10 @@ export const mockAPI = {
       if (!res.ok) {
         return { success: false, error: data?.error || data?.message || 'Failed to fetch user' };
       }
-      return { success: true, user: data.user };
+
+      // Normalize: backend may return { user: {...} } or the user object directly
+      const user = data?.user ?? data ?? null;
+      return { success: true, user };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Network error' };
     }

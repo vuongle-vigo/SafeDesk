@@ -412,3 +412,7 @@ age: 0.100000 minutes
 2025-11-24 17:04: Failed to prepare statement: no such table: visited_links
 2025-11-24 17:04: Failed to prepare statement: no such table: visited_links
 2025-11-24 17:08: Failed to prepare statement: no such table: visited_links
+2025-11-25 10:05: Failed to open Service Control Manager: 5
+2025-11-25 11:27: Starting SafeDeskTray process from path: C:\Users\levuong\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\SafeDeskTray.exe
+2025-11-25 11:27: Creating pipe for new client...
+2025-11-25 11:27: Waiting for client...

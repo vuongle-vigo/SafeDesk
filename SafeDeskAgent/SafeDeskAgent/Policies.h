@@ -39,7 +39,7 @@ public:
 	~Policies();
 	static Policies& GetInstance();
 	void policiesMonitor();
-	DailyPolicy getDailyPolicy(int day_of_week);
+	DailyPolicy getDailyPolicy();
 	AppPolicy getAppPolicy(const std::string& install_location);
 
 private:

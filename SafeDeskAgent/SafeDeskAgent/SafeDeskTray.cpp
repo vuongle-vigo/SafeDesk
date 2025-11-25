@@ -160,6 +160,8 @@ bool SafeDeskTray::InitPipeServer() {
 							std::wstring data4 = message.substr(sep3 + 1);
                             std::string sProcessPath = std::string(data3.begin(), data3.end());
 
+                            LogToFile("Setting process info: Path=" + sProcessPath +
+                                ", Title=" + std::string(data2.begin(), data2.end()) + ", PID=" + std::string(data4.begin(), data4.end()));
                             processMonitor.SetInfoProcess(
                                 ToLowercase(CleanProcessPath(sProcessPath)),
                                 data2, 

@@ -85,13 +85,13 @@ void Policies::policiesMonitor() {
 			m_dailyPolicies[index].shutdown_on_exceed = policy["shutdown_on_exceed"].get<int>();
 		}
 
-
 		std::this_thread::sleep_for(std::chrono::minutes(5));
 	}
 }
 
-DailyPolicy Policies::getDailyPolicy(int day_of_week) {
-	return m_dailyPolicies[day_of_week];
+DailyPolicy Policies::getDailyPolicy() {
+	int today = GetWeekDay();
+	return m_dailyPolicies[today];
 }
 
 AppPolicy Policies::getAppPolicy(const std::string& install_location) {
@@ -103,5 +103,6 @@ AppPolicy Policies::getAppPolicy(const std::string& install_location) {
 			return appPolicy;
 		}
 	}
+
 	return AppPolicy{};
 }

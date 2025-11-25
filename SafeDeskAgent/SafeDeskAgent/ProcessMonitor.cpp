@@ -173,6 +173,12 @@ BOOL ProcessMonitor::StopProcess(const std::wstring sProcessName) {
 }
 
 bool ProcessMonitor::SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle, int processID) {
+    
+	LogToFile("Setting process info: Path=" + sProcessPath +
+		", Title=" + WstringToString(wsProcessTitle) + ", PID=" + std::to_string(processID));
+	std::cout << "Setting process info: Path=" << sProcessPath <<
+		", Title=" << WstringToString(wsProcessTitle) << ", PID=" << processID << std::endl;
+
     m_processInfo.m_sCurrentProcessPath = sProcessPath;
     m_processInfo.m_wsCurrentWindowTitle = wsProcessTitle;
 	m_processInfo.m_processID = processID;
@@ -185,13 +191,21 @@ bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
 	if (sProcessDir.empty())
 		return false;
 	AppPolicy appPolicy = policies.getAppPolicy(sProcessDir);
-    LogToFile("Result: " + appPolicy.install_location);
+	LogToFile("Find app policy for process: " + sProcessPath +
+		", Install location: " + appPolicy.install_location +
+		", is_blocked: " + std::to_string(appPolicy.is_blocked) +
+		", action_on_limit: " + appPolicy.action_on_limit
+	);
+
     if (appPolicy.app_id == 0) {
         return false;
     }
+
 	std::string processName = GetProcessName(sProcessPath);
     SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
     if (appPolicy.is_blocked == 1) {
+		LogToFile("Blocked App Detected: " + sProcessPath);
+        safeDeskTray.SendMessageToTray(NOTI_LABEL + std::wstring(L"|Blocked App Detected, Stop Now: ") + StringToWstring(sProcessPath));
 		return KillProcessById(m_processInfo.m_processID);
     }
 
@@ -199,8 +213,7 @@ bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
         return true;
     }
     else if (appPolicy.action_on_limit == "warn") {
-        std::wcout << L"Warn App Detected: " << sProcessPath.c_str() << std::endl;
-        std::string message = "Warn App Detected: " + sProcessPath;
+        std::string message = "|Warn App Detected: " + sProcessPath;
         /*std::thread([message]() {
             MessageBoxA(
                 NULL,
@@ -209,11 +222,12 @@ bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
                 MB_OK | MB_ICONWARNING
             );
             }).detach();*/
-        safeDeskTray.SendMessageToTray(StringToWstring(message));
+        LogToFile(message);
+        safeDeskTray.SendMessageToTray(NOTI_LABEL + StringToWstring(message));
         return true; // Warn app found
     }
     else if (appPolicy.action_on_limit == "close") {
-        std::string message = "Warn App Detected: " + sProcessPath + "\nStop app now!!!";
+        std::string message = "|Warn App Detected: " + sProcessPath + "\nStop app now!!!";
         /*std::thread([message]() {
             MessageBoxA(
                 NULL,
@@ -222,23 +236,12 @@ bool ProcessMonitor::CheckBlockApp(std::string& sProcessPath) {
                 MB_OK | MB_ICONWARNING
             );
             }).detach();*/
-        safeDeskTray.SendMessageToTray(StringToWstring(message));
+		LogToFile(message);
+        safeDeskTray.SendMessageToTray(NOTI_LABEL + StringToWstring(message));
         return KillProcessById(m_processInfo.m_processID);
     }
 
-
-    //std::wcout << L"Blocked App Detected: " << pathCheck.c_str() << std::endl;
-    //std::string message = "Blocked App Detected: " + path;
-    ///* std::thread([message]() {
-    //     MessageBoxA(
-    //         NULL,
-    //         message.c_str(),
-    //         "App Blocked",
-    //         MB_OK | MB_ICONWARNING
-    //     );
-    //     }).detach();*/
-    //safeDeskTray.SendMessageToTray(StringToWstring(message));
-    return true; // Blocked app found
+    return true; 
 }
 
 void ProcessMonitor::MonitorProcessUsage() {
@@ -247,42 +250,55 @@ void ProcessMonitor::MonitorProcessUsage() {
     std::string sTime;
     while (1) {
         //std::wstring wsActiveWindowTitle = GetActiveWindowTitle();
-		if (CheckBlockApp(m_processInfo.m_sProcessPath)) {
-			Sleep((int)m_fTimeDelayQuery);
-			continue;
+		if (CheckBlockApp(m_processInfo.m_sCurrentProcessPath)) {
+			//Sleep((int)m_fTimeDelayQuery);
+			//continue;
 		}
 
         if (m_processInfo.m_wsProcessTitle != m_processInfo.m_wsCurrentWindowTitle && !m_processInfo.m_wsCurrentWindowTitle.empty()) {
             sTime = GetCurrentTimeHour();
             m_processInfo.m_wsProcessTitle = m_processInfo.m_wsCurrentWindowTitle;
-            //std::wcout << L"Active Window Title: " << m_processInfo.m_wsProcessTitle << std::endl;
             //m_processInfo.m_sProcessPath = GetActiveWindowProcessPath();
             m_processInfo.m_sProcessPath = m_processInfo.m_sCurrentProcessPath;
             m_processInfo.m_fTimeUsage = 0;
+			LogToFile(
+				"Active Window Title: " + WstringToString(m_processInfo.m_wsProcessTitle) +
+				", Process Path: " + m_processInfo.m_sProcessPath + ", CurrentDate: " + GetCurrentDate() + ", StartTime: " + sTime
+			);
+
             //Insert new database
-            processUsageDB.add(
+            if (!processUsageDB.add(
                 m_processInfo.m_wsProcessTitle,
                 m_processInfo.m_sProcessPath,
                 GetCurrentDate(),
                 sTime,
                 m_processInfo.m_fTimeUsage
-            );
+            )) {
+				//std::cerr << "Failed to add process usage to database." << std::endl;
+			}
+            else {
+                //std::cout << "Added new process usage to database." << std::endl;
+            }
         }
         else {
             m_processInfo.m_fTimeUsage += m_fTimeDelayQuery / 60000; // Convert milliseconds to minutes
-            std::wcout << L"Process Path: " << m_processInfo.m_sProcessPath.c_str() << L", Time Usage: " << m_processInfo.m_fTimeUsage << L" minutes" << std::endl;
-            LogToFile(
+			LogToFile(
                 "Process Path: " + m_processInfo.m_sProcessPath +
                 ", Time Usage: " + std::to_string(m_processInfo.m_fTimeUsage) + " minutes"
             );
             //Update database
-            processUsageDB.update_lastest(
+            if (!processUsageDB.update_lastest(
                 m_processInfo.m_wsProcessTitle,
                 m_processInfo.m_sProcessPath,
                 GetCurrentDate(),
                 sTime,
                 m_processInfo.m_fTimeUsage
-            );
+            )) {
+				//std::cerr << "Failed to update process usage in database." << std::endl;
+            }
+            else {
+				//std::cout << "Updated process usage in database." << std::endl;
+            }
         }
 
         // Check AppLock.exe app isn't active
@@ -293,12 +309,12 @@ void ProcessMonitor::MonitorProcessUsage() {
             if (usage_minutes != -1) {
                 double new_usage_minutes = usage_minutes + m_fTimeDelayQuery / 60000; // Convert milliseconds to minutes
                 if (!powerUsageDB.update(currentDate, currentHour, new_usage_minutes)) {
-                    std::cerr << "Failed to update power usage in database." << std::endl;
+                    //std::cerr << "Failed to update power usage in database." << std::endl;
                 }
             }
             else {
                 if (!powerUsageDB.add(currentDate, currentHour, m_fTimeDelayQuery / 60000)) {
-                    std::cerr << "Failed to add power usage in database." << std::endl;
+                    //std::cerr << "Failed to add power usage in database." << std::endl;
                 }
             }
         }

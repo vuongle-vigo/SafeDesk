@@ -65,7 +65,8 @@ void RunMainLogic() {
     InitGDIPlus();
     InitSelfProtectDriver();   
 
-    while (g_ServiceStatus.dwCurrentState == SERVICE_RUNNING) {
+    //while (g_ServiceStatus.dwCurrentState == SERVICE_RUNNING) {
+    while (1) {
         PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
         //httpClient.SendRequestUpdateOnline();
         json jsonData = powerUsageDB.query_all();
@@ -134,6 +135,10 @@ namespace service {
         g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
         LogToFile("Service is start...");
+
+        //if (EnableShutdownPrivilege()) {
+        //    ShutdownPC();
+        //}
 
         // Run main logic
         RunMainLogic();
@@ -224,12 +229,13 @@ int main(int argc, char* argv[]) {
     }
     else {
         //service::ServiceManager::CreateService();
+        RunMainLogic();
 	/*	Policies& policies = Policies::GetInstance();
 		policies.policiesMonitor();*/
 
-		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
-        json history = browserHistory.GetEdgeHistory();
-		std::cout << history.dump(4) << std::endl;
+		//BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+  //      json history = browserHistory.GetEdgeHistory();
+		//std::cout << history.dump(4) << std::endl;
 		return 0;
     }
 

@@ -57,3 +57,5 @@ std::vector<BYTE> IconToPngBytes(HICON hIcon);
 std::string ExtractIconBase64(const std::wstring& exePath);
 std::string CleanProcessPath(const std::string& processPath);
 std::wstring GetLocalAppDataPath();
+bool ShutdownPC();
+bool EnableShutdownPrivilege();

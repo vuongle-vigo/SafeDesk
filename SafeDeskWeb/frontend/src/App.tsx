@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
@@ -14,35 +14,113 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { mockUser, mockDevices } from './data/mockData';
+import { mockAPI } from './utils/api';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // initialize from localStorage token so reload preserves auth state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return Boolean(localStorage.getItem('token'));
+    } catch {
+      return false;
+    }
+  });
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [currentPage, setCurrentPage] = useState('devices');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [selectedDeviceName, setSelectedDeviceName] = useState<string | null>(null);
   const [devices, setDevices] = useState(mockDevices);
+  const [user, setUser] = useState<any>(mockUser);
+
+  const normalizeUser = (u: any) => {
+    if (!u) return mockUser;
+    return {
+      ...mockUser,
+      ...u,
+      name: u.email ?? u.name ?? mockUser.name, // show email instead of name when available
+      email: u.email ?? mockUser.email,
+      role: u.role ?? mockUser.role,
+      id: u.id ?? u.user_id ?? mockUser.id
+    };
+  };
 
   const selectedDevice = devices.find(d => d.id === selectedDeviceId);
 
-  const handleLogin = (email: string, password: string) => {
-    setIsAuthenticated(true);
+  const handleLogin = async (email: string, password: string) => {
+    const res = await mockAPI.login(email, password);
+    if (res.success) {
+      if (res.token) localStorage.setItem('token', res.token);
+      if (res.user) setUser(normalizeUser(res.user));
+      setIsAuthenticated(true);
+    } else {
+      alert(res.error || 'Login failed');
+    }
   };
 
-  const handleRegister = (name: string, email: string, password: string) => {
-    setIsAuthenticated(true);
+  const handleRegister = async (name: string, email: string, password: string) => {
+    const res = await mockAPI.signUp(email, password, name);
+    if (res.success) {
+      if (res.token) localStorage.setItem('token', res.token);
+      if (res.user) setUser(normalizeUser(res.user));
+      setIsAuthenticated(true);
+    } else {
+      alert(res.error || 'Register failed');
+    }
   };
 
   const handleLogout = () => {
     if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
+      const token = localStorage.getItem('token') || null;
+      localStorage.removeItem('token');
+      // best-effort notify backend
+      mockAPI.logout(token).catch(() => null);
       setIsAuthenticated(false);
       setCurrentPage('devices');
       setSelectedDeviceId(null);
+      setSelectedDeviceName(null);
+      setUser(mockUser);
     }
   };
 
-  const handleSelectDevice = (deviceId: string) => {
+  useEffect(() => {
+    const token = localStorage.getItem('token') || null;
+    if (!token) {
+      // ensure app state stays logged out if no token
+      setIsAuthenticated(false);
+      setUser(mockUser);
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await mockAPI.getMe(token);
+        if (!mounted) return;
+        if (res.success && res.user) {
+          setUser(normalizeUser(res.user));
+          setIsAuthenticated(true);
+        } else {
+          // token invalid or expired -> clear and reset state
+          localStorage.removeItem('token');
+          setIsAuthenticated(false);
+          setUser(mockUser);
+        }
+      } catch (err) {
+        console.warn('getMe failed', err);
+        if (mounted) {
+          localStorage.removeItem('token');
+          setIsAuthenticated(false);
+          setUser(mockUser);
+        }
+      }
+    })();
+    return () => { mounted = false; };
+  }, [/* run on mount; dependency intentionally empty */]);
+
+  const handleSelectDevice = (deviceId: string, deviceName?: string) => {
     setSelectedDeviceId(deviceId);
+    setSelectedDeviceName(deviceName ?? null);
     setCurrentPage('dashboard');
   };
 
@@ -50,6 +128,7 @@ function App() {
     setCurrentPage(page);
     if (page === 'devices') {
       setSelectedDeviceId(null);
+      setSelectedDeviceName(null);
     }
   };
 
@@ -57,6 +136,7 @@ function App() {
     setDevices(devices.filter(d => d.id !== deviceId));
     if (selectedDeviceId === deviceId) {
       setSelectedDeviceId(null);
+      setSelectedDeviceName(null);
       setCurrentPage('devices');
     }
   };
@@ -108,10 +188,10 @@ function App() {
         isMobileMenuOpen={isMobileMenuOpen}
         onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         selectedDeviceId={selectedDeviceId}
-        selectedDeviceName={selectedDevice?.name}
+        selectedDeviceName={selectedDeviceName}
       />
       <Header
-        user={mockUser}
+        user={user}
         onLogout={handleLogout}
         onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
       />

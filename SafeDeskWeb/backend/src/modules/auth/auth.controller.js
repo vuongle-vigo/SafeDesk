@@ -21,3 +21,13 @@ exports.login = async (req, res) => {
         res.status(400).json({ error: error.message });
     }
 };
+
+exports.getMe = async (req, res) => {
+    try {
+        const user = req.user; // Assuming user info is attached to req by auth middleware
+        console.log('GetMe user:', user);
+        res.json({ id: user.user_id, email: user.email, role: user.role });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};

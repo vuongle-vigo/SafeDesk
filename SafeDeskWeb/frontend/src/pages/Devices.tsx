@@ -8,7 +8,7 @@ import { mockAPI } from '../utils/api';
 interface DevicesProps {
   devices: Device[];
   selectedDeviceId: string | null;
-  onSelectDevice: (deviceId: string) => void;
+  onSelectDevice: (deviceId: string, deviceName?: string) => void;
   onRemoveDevice?: (deviceId: string) => void;
 }
 
@@ -158,7 +158,7 @@ export default function Devices({ devices, selectedDeviceId, onSelectDevice, onR
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              onClick={() => onSelectDevice(device.id)}
+              onClick={() => onSelectDevice(device.id, device.name)}
               onMouseEnter={() => setHoveredDeviceId(device.id)}
               onMouseLeave={() => setHoveredDeviceId(null)}
               className={`bg-white rounded-xl p-4 md:p-6 border-2 cursor-pointer transition-all hover:shadow-lg ${

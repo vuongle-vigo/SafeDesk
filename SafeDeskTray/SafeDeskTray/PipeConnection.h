@@ -7,6 +7,7 @@
 #define PRORCESS_LABLE L"PROCESS"
 #define APPDATA_LABLE L"APPDATA"
 #define CAPTURESCREEN_LABEL L"CAPTURESCREEN"
+#define NOTI_LABEL L"NOTI"
 
 class PipeConnection {
 public:

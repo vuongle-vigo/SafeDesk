@@ -111,7 +111,9 @@ bool PipeConnection::InitPipe()
 					std::wcout << L"Failed to capture screen." << std::endl;
 				}
 			}
-			else {
+			else if (command == std::wstring(NOTI_LABEL)){
+				std::wstring noti_message = message.substr(sep1 + 1);
+				MessageBoxW(NULL, noti_message.c_str(), L"Pipe Message", MB_OK | MB_ICONINFORMATION);
 				std::wcout << L"Received unknown command: " << command << std::endl;
 			}
 		}
