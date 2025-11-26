@@ -416,3 +416,13 @@ age: 0.100000 minutes
 2025-11-25 11:27: Starting SafeDeskTray process from path: C:\Users\levuong\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\SafeDeskTray.exe
 2025-11-25 11:27: Creating pipe for new client...
 2025-11-25 11:27: Waiting for client...
+2025-11-26 09:46: Failed to prepare statement: database is locked
+2025-11-26 09:50: Failed to prepare statement: database is locked
+2025-11-26 09:50: Failed to prepare statement: database is locked
+2025-11-26 09:50: Failed to prepare statement: database is locked
+2025-11-26 09:52: Failed to prepare statement: database is locked
+2025-11-26 09:52: Failed to prepare statement: database is locked
+2025-11-26 10:12: Failed to prepare statement: no such table: browser_history
+2025-11-26 10:14: Failed to prepare statement: no such table: browser_history
+2025-11-26 10:15: Failed to prepare statement: no such table: browser_history
+2025-11-26 10:15: Failed to prepare statement: no such table: browser_history

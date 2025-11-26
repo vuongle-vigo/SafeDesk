@@ -142,6 +142,37 @@ INSERT INTO `app_policies` VALUES (1,2712,0,1,60,'none',3,'2025-11-20 16:27:07',
 UNLOCK TABLES;
 
 --
+-- Table structure for table `browser_history`
+--
+
+DROP TABLE IF EXISTS `browser_history`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `browser_history` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `agent_id` varchar(64) NOT NULL,
+  `url` text,
+  `title` text,
+  `visit_count` int NOT NULL DEFAULT '0',
+  `typed_count` int NOT NULL DEFAULT '0',
+  `last_visit_time` bigint NOT NULL,
+  `hidden` tinyint(1) NOT NULL DEFAULT '0',
+  `browser_name` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `browser_history`
+--
+
+LOCK TABLES `browser_history` WRITE;
+/*!40000 ALTER TABLE `browser_history` DISABLE KEYS */;
+/*!40000 ALTER TABLE `browser_history` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `daily_usage_policies`
 --
 
@@ -362,4 +393,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-25 17:42:17
+-- Dump completed on 2025-11-26 16:32:39

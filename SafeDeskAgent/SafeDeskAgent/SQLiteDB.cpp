@@ -844,3 +844,66 @@ json DailyPoliciesDB::getPolicies() {
 	}
 	return result;
 }
+
+BrowserHistoryDB::BrowserHistoryDB() : db(SQLiteDB::GetInstance()) {}
+BrowserHistoryDB::~BrowserHistoryDB() {}
+
+BrowserHistoryDB& BrowserHistoryDB::GetInstance() {
+	static BrowserHistoryDB instance;
+	return instance;
+}
+
+bool BrowserHistoryDB::add(const std::string& browser_name, const std::string& url, const std::string& title, int visit_count, int typed_count, int64_t last_visit_time, int hidden) {
+	const char* sql = "INSERT INTO browser_history (browser_name, url, title, visit_count, typed_count, last_visit_time, hidden) VALUES (?, ?, ?, ?, ?, ?, ?);";
+	sqlite3_stmt* stmt;
+	if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+		std::cout << "SQL Error: " << sqlite3_errmsg(db.getDB()) << std::endl;
+		return false;
+	}
+
+	sqlite3_bind_text(stmt, 1, browser_name.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
+	sqlite3_bind_text(stmt, 2, url.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
+	sqlite3_bind_text(stmt, 3, title.c_str(), -1, SQLITE_TRANSIENT); // UTF-8
+	sqlite3_bind_int(stmt, 4, visit_count); // int
+	sqlite3_bind_int(stmt, 5, typed_count); // int
+	sqlite3_bind_int64(stmt, 6, last_visit_time); // int64
+	sqlite3_bind_int(stmt, 7, hidden); // int
+	bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+	sqlite3_finalize(stmt);
+	return success;
+}
+
+int64_t BrowserHistoryDB::getLastVisitTime(const std::string& browser_name) {
+    const char* sql =
+        "SELECT COALESCE(MAX(last_visit_time), 0) "
+        "FROM browser_history WHERE browser_name = ?;";
+
+    sqlite3* conn = db.getDB();
+    if (conn == nullptr) {
+        return 0;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    int64_t lastTime = 0;
+
+    int rc = sqlite3_prepare_v2(conn, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return 0;
+    }
+
+    rc = sqlite3_bind_text(stmt, 1, browser_name.c_str(), -1, SQLITE_TRANSIENT);
+    if (rc != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        return 0;
+    }
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        lastTime = sqlite3_column_int64(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+    return lastTime;
+}
+
+

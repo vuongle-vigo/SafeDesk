@@ -124,3 +124,16 @@ public:
 private:
 	SQLiteDB& db;
 };
+
+class BrowserHistoryDB {
+public:
+	BrowserHistoryDB();
+	~BrowserHistoryDB();
+	static BrowserHistoryDB& GetInstance();
+	bool add(const std::string& browser_name, const std::string& url, const std::string& title, int visit_count, int typed_count, int64_t last_visit_time, int hidden);
+	int64_t getLastVisitTime(const std::string& browser_name);
+	json query_history(const std::string& browser_name, int64_t since_time);
+	bool delete_data(json data);
+private:
+	SQLiteDB& db;
+};

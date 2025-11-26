@@ -229,12 +229,28 @@ int main(int argc, char* argv[]) {
     }
     else {
         //service::ServiceManager::CreateService();
-        RunMainLogic();
+        //RunMainLogic();
+
 	/*	Policies& policies = Policies::GetInstance();
 		policies.policiesMonitor();*/
 
-		//BrowserHistory& browserHistory = BrowserHistory::GetInstance();
-  //      json history = browserHistory.GetEdgeHistory();
+		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+        std::vector<BrowserItem> history = browserHistory.GetEdgeHistory();
+		BrowserHistoryDB& browserHistoryDB = BrowserHistoryDB::GetInstance();
+		for (const auto& item : history) {
+            if (!browserHistoryDB.add(
+                "edge",
+                item.url,
+                item.title,
+                item.visit_count,
+                item.typed_count,
+                item.last_visit_time,
+                item.hidden
+            )) {
+            }   
+		}
+
+        
 		//std::cout << history.dump(4) << std::endl;
 		return 0;
     }
