@@ -92,11 +92,7 @@ async function getBrowserHistory(options = {}) {
 
     try {
         const rows = await db.query(sql);
-        console.log('getBrowserHistory query result rows:', rows);
-        return rows.map(row => ({
-            ...row,
-            last_visit_time: webkitToUnixMs(row.last_visit_time)
-        }));
+        return rows;
     } catch (err) {
         console.error('getBrowserHistory query failed', { sql: sql.trim(), err: err && err.message ? err.message : err });
         throw err;

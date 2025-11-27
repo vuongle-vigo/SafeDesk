@@ -40,7 +40,7 @@ async function getBrowserHistory(req, res) {
             limit,
             cursor
         } = req.query;
-        console.log('getBrowserHistory called in controller with options:', req.query);
+
         // Date range resolution (returns epoch ms)
         let dateFrom = null;
         let dateTo = null;
@@ -88,8 +88,6 @@ async function getBrowserHistory(req, res) {
         };
 
         const result = await browserHistoryService.getBrowserHistory(agentId, options);
-
-        // Expect service to return: { items: [], nextCursor: string|null, total?: number }
         return res.json({
             items: result.items || [],
             nextCursor: result.nextCursor || null,

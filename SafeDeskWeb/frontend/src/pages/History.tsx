@@ -1,7 +1,7 @@
 import { Search, Filter, Globe, Calendar, X, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { mockBrowserHistory } from '../data/mockData';
+// removed import of mockBrowserHistory
 import { mockAPI } from '../utils/api';
 import type { BrowserHistory } from '../types';
 
@@ -18,8 +18,7 @@ export default function History({ selectedDeviceId }: HistoryProps) {
   const [dateFilter, setDateFilter] = useState<DateFilter>('7days');
   const [hideSystem, setHideSystem] = useState(true);
 
-  // API mode
-  const [useAPI, setUseAPI] = useState(false);
+  // API mode (use only API)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiHistory, setApiHistory] = useState<BrowserHistory[]>([]);
@@ -27,10 +26,12 @@ export default function History({ selectedDeviceId }: HistoryProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  // Mock mode
-  const [displayCount, setDisplayCount] = useState(50);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const LIMIT = 50;
+
+  // Add a ref to avoid including `loading` and `nextCursor` in fetch deps and prevent re-entry
+  const isFetchingRef = useRef(false);
+  const nextCursorRef = useRef<string | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -47,37 +48,18 @@ export default function History({ selectedDeviceId }: HistoryProps) {
     return Math.floor((webkit - WEBKIT_EPOCH_OFFSET) / 1000);
   };
 
-  // Get date cutoff for mock mode
-  const getDateCutoff = (): number => {
-    const now = Date.now();
-    switch (dateFilter) {
-      case '7days':
-        return now - 7 * 24 * 60 * 60 * 1000;
-      case '30days':
-        return now - 30 * 24 * 60 * 60 * 1000;
-      case '3months':
-        return now - 90 * 24 * 60 * 60 * 1000;
-      default:
-        return 0;
-    }
-  };
-
-  // Get available browsers from mock data
-  const mockBrowsers = useMemo(() => {
-    const browserSet = new Set(mockBrowserHistory.map(h => h.browser_name).filter(Boolean));
-    return Array.from(browserSet).sort();
-  }, []);
-
   // Fetch from API
   const fetchAPIHistory = useCallback(async (reset = false) => {
     if (!selectedDeviceId) return;
-    if (loading) return;
+    if (isFetchingRef.current) return; // use ref guard
 
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const token = localStorage.getItem('token') || '';
+      const cursor = reset ? undefined : (nextCursorRef.current || undefined);
       const result = await mockAPI.getBrowserHistory(
         selectedDeviceId,
         {
@@ -86,85 +68,61 @@ export default function History({ selectedDeviceId }: HistoryProps) {
           range: dateFilter,
           hide_system: hideSystem,
           limit: LIMIT,
-          cursor: reset ? undefined : nextCursor || undefined
+          cursor
         }, token
       );
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch history');
       }
-      console.log('Fetched history from API:', result[0]);
       const newItems = result.items || [];
       setApiHistory(prev => reset ? newItems : [...prev, ...newItems]);
-      setNextCursor(result.nextCursor || null);
-      setHasMore(!!result.nextCursor);
+
+      const nc = result.nextCursor || null;
+      setNextCursor(nc);
+      nextCursorRef.current = nc; // keep ref in sync
+
+      setHasMore(!!nc);
       if (result.total !== undefined) {
         setApiTotal(result.total);
       }
     } catch (err: any) {
       console.error('Failed to fetch history:', err);
       setError(err.message);
-      // Fallback to mock data
-      setUseAPI(false);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
-  }, [selectedDeviceId, debouncedSearch, browserFilter, dateFilter, hideSystem, nextCursor, loading]);
+  // note: nextCursor removed from deps; function depends on stable refs/state values
+  }, [selectedDeviceId, debouncedSearch, browserFilter, dateFilter, hideSystem]);
 
-  // Reset and reload when filters change
+  // Reset and reload when filters or selectedDeviceId change
   useEffect(() => {
-    if (useAPI && selectedDeviceId) {
+    if (!selectedDeviceId) {
       setApiHistory([]);
+      setApiTotal(0);
       setNextCursor(null);
-      fetchAPIHistory(true);
+      nextCursorRef.current = null;
+      setHasMore(false);
+      return;
     }
-  }, [useAPI, selectedDeviceId, debouncedSearch, browserFilter, dateFilter, hideSystem]);
+    // reset and fetch fresh
+    setApiHistory([]);
+    setNextCursor(null);
+    nextCursorRef.current = null;
+    fetchAPIHistory(true);
+  }, [selectedDeviceId, debouncedSearch, browserFilter, dateFilter, hideSystem]); // removed fetchAPIHistory from deps to avoid loop
 
-  // Try to use API if device is selected
-  useEffect(() => {
-    if (selectedDeviceId) {
-      setUseAPI(true);
-    }
-  }, [selectedDeviceId]);
+  // Derive available browsers from apiHistory
+  const availableBrowsers = useMemo(() => {
+    const setB = new Set(apiHistory.map(h => h.browser_name).filter(Boolean));
+    return Array.from(setB).sort();
+  }, [apiHistory]);
 
-  // Filter mock data
+  // Filtered data: now purely from API results (no mock slicing)
   const { filteredHistory, total } = useMemo(() => {
-    if (useAPI) {
-      return { filteredHistory: apiHistory, total: apiTotal };
-    }
-
-    const cutoffTimeMs = getDateCutoff();
-    const cutoffTimeWebkit = (cutoffTimeMs * 1000) + WEBKIT_EPOCH_OFFSET;
-
-    let filtered = mockBrowserHistory.filter(item => {
-      if (item.last_visit_time < cutoffTimeWebkit) return false;
-
-      if (debouncedSearch) {
-        const searchLower = debouncedSearch.toLowerCase();
-        const matchesUrl = item.url.toLowerCase().includes(searchLower);
-        const matchesTitle = item.title.toLowerCase().includes(searchLower);
-        if (!matchesUrl && !matchesTitle) return false;
-      }
-
-      if (browserFilter && item.browser_name !== browserFilter) return false;
-
-      if (hideSystem) {
-        if (item.url.startsWith('chrome://') ||
-            item.url.startsWith('edge://') ||
-            item.url.startsWith('about:') ||
-            item.url.startsWith('file://')) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    return {
-      filteredHistory: filtered.slice(0, displayCount),
-      total: filtered.length
-    };
-  }, [useAPI, apiHistory, apiTotal, debouncedSearch, browserFilter, dateFilter, hideSystem, displayCount]);
+    return { filteredHistory: apiHistory, total: apiTotal };
+  }, [apiHistory, apiTotal]);
 
   // Group by date
   const groupedHistory = useMemo(() => {
@@ -182,22 +140,13 @@ export default function History({ selectedDeviceId }: HistoryProps) {
     return grouped;
   }, [filteredHistory]);
 
-  // Reset display count when filters change (mock mode)
-  useEffect(() => {
-    if (!useAPI) {
-      setDisplayCount(50);
-    }
-  }, [debouncedSearch, browserFilter, dateFilter, hideSystem, useAPI]);
-
-  // Infinite scroll observer
+  // Infinite scroll observer: uses API hasMore / fetchAPIHistory
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) {
-          if (useAPI && hasMore) {
+        if (entries[0].isIntersecting && !isFetchingRef.current) {
+          if (hasMore) {
             fetchAPIHistory(false);
-          } else if (!useAPI && displayCount < total) {
-            setDisplayCount(prev => prev + LIMIT);
           }
         }
       },
@@ -209,7 +158,7 @@ export default function History({ selectedDeviceId }: HistoryProps) {
     }
 
     return () => observer.disconnect();
-  }, [useAPI, hasMore, displayCount, total, loading, fetchAPIHistory]);
+  }, [hasMore, fetchAPIHistory]); // loading removed, use isFetchingRef guard
 
   const formatTime = (timestamp: number) => {
     const unixMs = webkitToUnixMs(timestamp);
@@ -268,7 +217,7 @@ export default function History({ selectedDeviceId }: HistoryProps) {
     !hideSystem
   ].filter(Boolean).length;
 
-  const showHasMore = useAPI ? hasMore : displayCount < total;
+  const showHasMore = hasMore;
 
   return (
     <div className="space-y-6">
@@ -278,7 +227,7 @@ export default function History({ selectedDeviceId }: HistoryProps) {
           <h1 className="text-2xl font-bold text-gray-900">Lịch sử duyệt web</h1>
           <p className="text-gray-500 mt-1">
             {total > 0 ? `${total.toLocaleString()} lượt truy cập` : 'Không có lịch sử'}
-            {!useAPI && <span className="text-orange-600 ml-2">(Dữ liệu mẫu)</span>}
+            {/* removed "(Dữ liệu mẫu)" tag */}
           </p>
         </div>
       </div>
@@ -320,7 +269,7 @@ export default function History({ selectedDeviceId }: HistoryProps) {
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả trình duyệt</option>
-            {mockBrowsers.map(browser => (
+            {availableBrowsers.map(browser => (
               <option key={browser} value={browser}>{browser}</option>
             ))}
           </select>

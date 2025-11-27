@@ -72,7 +72,6 @@ async function getBrowserHistory(agentId, options = {}) {
 
     // Expect model to return rows sorted by last_visit_time desc
     const rows = await browserHistoryModel.getBrowserHistory(queryOptions);
-
     const hasMore = rows.length > parsedLimit;
     const items = hasMore ? rows.slice(0, parsedLimit) : rows;
 
