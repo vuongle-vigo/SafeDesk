@@ -46,12 +46,16 @@ export interface Screenshot {
 }
 
 export interface BrowserHistory {
-  id: string;
+  id: number;
+  agent_id: string;
+  url: string;
   title: string;
-  domain: string;
-  favicon: string;
-  timestamp: string;
-  visitCount: number;
+  visit_count: number;
+  typed_count: number;
+  last_visit_time: number;
+  hidden: boolean;
+  browser_name: string;
+  created_at: string;
 }
 
 export interface UsageLimit {

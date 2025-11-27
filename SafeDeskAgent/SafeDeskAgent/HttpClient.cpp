@@ -265,6 +265,24 @@ bool HttpClient::PostApplication(json data) {
 	return true;
 }
 
+bool HttpClient::PostBrowserHistory(json data) {
+	Config& cfg = Config::GetInstance();
+	Client m_client(cfg.GetHost(), cfg.GetPort());
+	auto response = m_client.Post(API_BROWSER_HISTORY_POST, m_headers, data.dump(), "application/json");
+	if (response == nullptr) {
+		std::cerr << "No response from server." << std::endl;
+		return false;
+	}
+	if (response && response->status == 200) {
+		std::cout << "Response: " << response->body << std::endl;
+	}
+	else {
+		std::cerr << "Request failed: " << response->body << std::endl;
+		return false;
+	}
+	return true;
+}
+
 json HttpClient::SendRequestGetConfig() {
 	Config& cfg = Config::GetInstance();
 	json result;

@@ -906,4 +906,67 @@ int64_t BrowserHistoryDB::getLastVisitTime(const std::string& browser_name) {
     return lastTime;
 }
 
+json BrowserHistoryDB::query_all() {
+	json result;
+	const char* sql = "SELECT browser_name, url, title, visit_count, typed_count, last_visit_time, hidden FROM browser_history WHERE upload_status = 0;";
+	sqlite3_stmt* stmt;
+	if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+		return result; // Return empty JSON if query fails
+	}
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		std::string browser_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+		std::string url = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+		std::string title = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+		int visit_count = sqlite3_column_int(stmt, 3);
+		int typed_count = sqlite3_column_int(stmt, 4);
+		int64_t last_visit_time = sqlite3_column_int64(stmt, 5);
+		int hidden = sqlite3_column_int(stmt, 6);
+		result.push_back({
+			{"browser_name", browser_name},
+			{"url", url},
+			{"title", title},
+			{"visit_count", visit_count},
+			{"typed_count", typed_count},
+			{"last_visit_time", last_visit_time},
+			{"hidden", hidden}
+			});
+	}
+	sqlite3_finalize(stmt);
+	return result;
+}
 
+bool BrowserHistoryDB::update_status(json data) {
+	if (!data.is_array() || data.empty()) {
+		return false; // Return false if input JSON is not an array or is empty
+	}
+
+	sqlite3_stmt* stmt;
+	const char* sql = "UPDATE browser_history SET upload_status=1 WHERE browser_name = ? AND url = ? AND last_visit_time = ?;";
+	if (sqlite3_prepare_v2(db.getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+		return false; // Return false if query preparation fails
+	}
+
+	bool success = true;
+	// Iterate through JSON array
+	for (const auto& item : data) {
+		if (!item.contains("browser_name") || !item.contains("url") || !item.contains("last_visit_time")) {
+			success = false; // Mark as failed but continue processing other records
+			continue;
+		}
+		std::string browser_name = item["browser_name"].get<std::string>();
+		std::string url = item["url"].get<std::string>();
+		int64_t last_visit_time = item["last_visit_time"].get<int64_t>();
+		// Bind parameters
+		sqlite3_bind_text(stmt, 1, browser_name.c_str(), -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt, 2, url.c_str(), -1, SQLITE_STATIC);
+		sqlite3_bind_int64(stmt, 3, last_visit_time);
+		// Execute statement
+		if (sqlite3_step(stmt) != SQLITE_DONE) {
+			success = false; // Mark as failed but continue processing other records
+		}
+		// Reset statement for next iteration
+		sqlite3_reset(stmt);
+	}
+	sqlite3_finalize(stmt);
+	return success;
+}

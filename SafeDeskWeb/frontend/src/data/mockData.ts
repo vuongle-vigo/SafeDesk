@@ -87,16 +87,90 @@ export const mockScreenshots: Screenshot[] = [
   { id: '6', url: 'https://images.pexels.com/photos/1181271/pexels-photo-1181271.jpeg?auto=compress&cs=tinysrgb&w=400', timestamp: '2025-11-11 13:15:00' }
 ];
 
-export const mockBrowserHistory: BrowserHistory[] = [
-  { id: '1', title: 'GitHub - Where the world builds software', domain: 'github.com', favicon: '🐙', timestamp: '14:30', visitCount: 45 },
-  { id: '2', title: 'Stack Overflow - Where Developers Learn', domain: 'stackoverflow.com', favicon: '📚', timestamp: '14:25', visitCount: 78 },
-  { id: '3', title: 'YouTube', domain: 'youtube.com', favicon: '▶️', timestamp: '14:20', visitCount: 156 },
-  { id: '4', title: 'Google', domain: 'google.com', favicon: '🔍', timestamp: '14:15', visitCount: 234 },
-  { id: '5', title: 'Facebook - log in or sign up', domain: 'facebook.com', favicon: '📘', timestamp: '14:10', visitCount: 89 },
-  { id: '6', title: 'Twitter', domain: 'twitter.com', favicon: '🐦', timestamp: '14:05', visitCount: 67 },
-  { id: '7', title: 'LinkedIn', domain: 'linkedin.com', favicon: '💼', timestamp: '14:00', visitCount: 42 },
-  { id: '8', title: 'Reddit - Dive into anything', domain: 'reddit.com', favicon: '🤖', timestamp: '13:55', visitCount: 91 }
-];
+// Generate realistic browser history with thousands of entries
+const generateBrowserHistory = (): BrowserHistory[] => {
+  const websites = [
+    { url: 'https://github.com/facebook/react', title: 'React - A JavaScript library for building user interfaces', browser: 'Chrome' },
+    { url: 'https://stackoverflow.com/questions/tagged/javascript', title: 'Newest JavaScript Questions - Stack Overflow', browser: 'Chrome' },
+    { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'How to Learn React in 2024 - YouTube', browser: 'Chrome' },
+    { url: 'https://www.google.com/search?q=react+hooks', title: 'react hooks - Google Search', browser: 'Chrome' },
+    { url: 'https://www.facebook.com/', title: 'Facebook - log in or sign up', browser: 'Edge' },
+    { url: 'https://twitter.com/home', title: 'Home / X', browser: 'Chrome' },
+    { url: 'https://www.linkedin.com/feed/', title: 'LinkedIn', browser: 'Edge' },
+    { url: 'https://www.reddit.com/r/programming/', title: 'r/programming - Reddit', browser: 'Firefox' },
+    { url: 'https://news.ycombinator.com/', title: 'Hacker News', browser: 'Chrome' },
+    { url: 'https://dev.to/', title: 'DEV Community', browser: 'Chrome' },
+    { url: 'https://medium.com/', title: 'Medium - Where good ideas find you', browser: 'Edge' },
+    { url: 'https://www.npmjs.com/', title: 'npm - Node Package Manager', browser: 'Chrome' },
+    { url: 'https://tailwindcss.com/docs', title: 'Tailwind CSS Documentation', browser: 'Chrome' },
+    { url: 'https://react.dev/', title: 'React Docs', browser: 'Chrome' },
+    { url: 'https://www.typescriptlang.org/', title: 'TypeScript: JavaScript With Syntax For Types', browser: 'Chrome' },
+    { url: 'https://vitejs.dev/', title: 'Vite - Next Generation Frontend Tooling', browser: 'Chrome' },
+    { url: 'https://supabase.com/docs', title: 'Supabase Documentation', browser: 'Chrome' },
+    { url: 'https://vercel.com/', title: 'Vercel: Develop. Preview. Ship.', browser: 'Chrome' },
+    { url: 'https://www.figma.com/', title: 'Figma: The Collaborative Interface Design Tool', browser: 'Chrome' },
+    { url: 'https://www.notion.so/', title: 'Notion - Your wiki, docs & projects', browser: 'Edge' },
+    { url: 'https://discord.com/channels/@me', title: 'Discord | Your Place to Talk', browser: 'Chrome' },
+    { url: 'https://slack.com/', title: 'Slack - Where work happens', browser: 'Chrome' },
+    { url: 'https://mail.google.com/', title: 'Gmail', browser: 'Chrome' },
+    { url: 'https://calendar.google.com/', title: 'Google Calendar', browser: 'Chrome' },
+    { url: 'https://drive.google.com/', title: 'Google Drive', browser: 'Chrome' },
+    { url: 'https://www.udemy.com/', title: 'Online Courses - Learn Anything, On Your Schedule | Udemy', browser: 'Edge' },
+    { url: 'https://www.coursera.org/', title: 'Coursera | Degrees, Certificates, & Free Online Courses', browser: 'Chrome' },
+    { url: 'https://www.codecademy.com/', title: 'Learn to Code - for Free | Codecademy', browser: 'Chrome' },
+    { url: 'https://www.freecodecamp.org/', title: 'freeCodeCamp.org', browser: 'Chrome' },
+    { url: 'https://leetcode.com/', title: 'LeetCode - The World\'s Leading Online Programming Platform', browser: 'Chrome' },
+    { url: 'https://www.hackerrank.com/', title: 'HackerRank', browser: 'Chrome' },
+    { url: 'https://www.codewars.com/', title: 'Codewars - Achieve mastery through coding practice', browser: 'Firefox' },
+    { url: 'https://www.amazon.com/', title: 'Amazon.com: Online Shopping for Electronics, Apparel', browser: 'Edge' },
+    { url: 'https://www.netflix.com/', title: 'Netflix Vietnam - Watch TV Shows Online', browser: 'Edge' },
+    { url: 'https://www.spotify.com/', title: 'Spotify - Web Player', browser: 'Chrome' },
+    { url: 'https://www.twitch.tv/', title: 'Twitch', browser: 'Chrome' },
+    { url: 'https://www.pinterest.com/', title: 'Pinterest', browser: 'Chrome' },
+    { url: 'https://www.instagram.com/', title: 'Instagram', browser: 'Edge' },
+    { url: 'https://www.tiktok.com/', title: 'TikTok', browser: 'Chrome' },
+    { url: 'chrome://settings/', title: 'Settings - Chrome', browser: 'Chrome' },
+    { url: 'edge://settings/', title: 'Settings - Microsoft Edge', browser: 'Edge' },
+    { url: 'about:config', title: 'Configuration Editor - Firefox', browser: 'Firefox' },
+  ];
+
+  const history: BrowserHistory[] = [];
+  const now = Date.now();
+  const daysToGenerate = 90; // 3 months
+  let id = 1;
+
+  // Generate entries for the past 90 days
+  for (let day = 0; day < daysToGenerate; day++) {
+    const dayStart = now - (day * 24 * 60 * 60 * 1000);
+    const entriesPerDay = Math.floor(Math.random() * 50) + 30; // 30-80 entries per day
+
+    for (let i = 0; i < entriesPerDay; i++) {
+      const website = websites[Math.floor(Math.random() * websites.length)];
+      const timestamp = dayStart - (Math.random() * 24 * 60 * 60 * 1000); // Random time during the day
+      const visitCount = Math.floor(Math.random() * 20) + 1;
+      const typedCount = Math.random() > 0.8 ? Math.floor(Math.random() * 3) : 0;
+      const hidden = Math.random() > 0.95;
+
+      history.push({
+        id: id++,
+        agent_id: 'device-1',
+        url: website.url,
+        title: website.title,
+        visit_count: visitCount,
+        typed_count: typedCount,
+        last_visit_time: Math.floor(timestamp * 1000), // Convert to microseconds
+        hidden: hidden,
+        browser_name: website.browser,
+        created_at: new Date(timestamp).toISOString()
+      });
+    }
+  }
+
+  // Sort by most recent first
+  return history.sort((a, b) => b.last_visit_time - a.last_visit_time);
+};
+
+export const mockBrowserHistory: BrowserHistory[] = generateBrowserHistory();
 
 export const mockUsageLimits: UsageLimit[] = [
   { id: '1', name: 'Google Chrome', type: 'app', appId: '2', limitMinutes: 180, usedMinutes: 156 },
@@ -215,6 +289,9 @@ export const mockTopWebsites = [
   { name: 'twitter.com', visits: 52, time: '48m', percentage: 9 },
   { name: 'facebook.com', visits: 34, time: '32m', percentage: 5 }
 ];
+
+// Helper function to get total count
+export const getTotalBrowserHistoryCount = () => mockBrowserHistory.length;
 
 export const mockDailySchedules: DailySchedule[] = [
   { id: '1', dayOfWeek: 1, dayName: 'Thứ 2', enabled: true, startTime: '08:00', endTime: '22:00' },

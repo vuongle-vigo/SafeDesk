@@ -156,7 +156,7 @@ function App() {
       case 'screenshots':
         return <Screenshots selectedDeviceId={selectedDeviceId}/>;
       case 'history':
-        return <History />;
+        return <History selectedDeviceId={selectedDeviceId}/>;
       case 'limits':
         return <Limits selectedDeviceId={selectedDeviceId} />;
       case 'settings':

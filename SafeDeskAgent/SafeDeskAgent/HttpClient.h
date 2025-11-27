@@ -15,6 +15,7 @@ using namespace httplib;
 #define API_SCREENSHOT_POST			"/api/agents/capture-screen"
 #define API_APP_POLICIES_GET		"/api/agents/app-policies"
 #define API_DAILY_POLICIES_GET		"/api/agents/daily-policies"
+#define API_BROWSER_HISTORY_POST	"/api/agents/browser-history"
 
 class HttpClient {
 public:
@@ -33,6 +34,7 @@ public:
 	bool PostPowerUsage(json data);
 	bool PostProcessUsage(json data);
 	bool PostApplication(json data);
+	bool PostBrowserHistory(json data);
 	bool SendRequestUpdateOnline();
 
 private:

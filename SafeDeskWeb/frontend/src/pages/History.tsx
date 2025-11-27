@@ -1,187 +1,480 @@
-import { Globe, TrendingUp, Calendar } from 'lucide-react';
+import { Search, Filter, Globe, Calendar, X, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
 import { mockBrowserHistory } from '../data/mockData';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { mockAPI } from '../utils/api';
+import type { BrowserHistory } from '../types';
 
-type TimeFilter = 'today' | 'week' | 'month';
+type DateFilter = '7days' | '30days' | '3months';
 
-export default function History() {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
+interface HistoryProps {
+  selectedDeviceId?: string | null;
+}
 
-  const topSites = mockBrowserHistory
-    .sort((a, b) => b.visitCount - a.visitCount)
-    .slice(0, 5)
-    .map(site => ({
-      name: site.domain.split('.')[0],
-      visits: site.visitCount
-    }));
+export default function History({ selectedDeviceId }: HistoryProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [browserFilter, setBrowserFilter] = useState<string>('');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('7days');
+  const [hideSystem, setHideSystem] = useState(true);
+
+  // API mode
+  const [useAPI, setUseAPI] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [apiHistory, setApiHistory] = useState<BrowserHistory[]>([]);
+  const [apiTotal, setApiTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Mock mode
+  const [displayCount, setDisplayCount] = useState(50);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const LIMIT = 50;
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // WebKit timestamp conversion (Chrome uses microseconds since 1601-01-01)
+  const WEBKIT_EPOCH_OFFSET = 11644473600000000;
+
+  const webkitToUnixMs = (webkit: number): number => {
+    return Math.floor((webkit - WEBKIT_EPOCH_OFFSET) / 1000);
+  };
+
+  // Get date cutoff for mock mode
+  const getDateCutoff = (): number => {
+    const now = Date.now();
+    switch (dateFilter) {
+      case '7days':
+        return now - 7 * 24 * 60 * 60 * 1000;
+      case '30days':
+        return now - 30 * 24 * 60 * 60 * 1000;
+      case '3months':
+        return now - 90 * 24 * 60 * 60 * 1000;
+      default:
+        return 0;
+    }
+  };
+
+  // Get available browsers from mock data
+  const mockBrowsers = useMemo(() => {
+    const browserSet = new Set(mockBrowserHistory.map(h => h.browser_name).filter(Boolean));
+    return Array.from(browserSet).sort();
+  }, []);
+
+  // Fetch from API
+  const fetchAPIHistory = useCallback(async (reset = false) => {
+    if (!selectedDeviceId) return;
+    if (loading) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('token') || '';
+      const result = await mockAPI.getBrowserHistory(
+        selectedDeviceId,
+        {
+          q: debouncedSearch || undefined,
+          browser: browserFilter || undefined,
+          range: dateFilter,
+          hide_system: hideSystem,
+          limit: LIMIT,
+          cursor: reset ? undefined : nextCursor || undefined
+        }, token
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch history');
+      }
+      console.log('Fetched history from API:', result[0]);
+      const newItems = result.items || [];
+      setApiHistory(prev => reset ? newItems : [...prev, ...newItems]);
+      setNextCursor(result.nextCursor || null);
+      setHasMore(!!result.nextCursor);
+      if (result.total !== undefined) {
+        setApiTotal(result.total);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch history:', err);
+      setError(err.message);
+      // Fallback to mock data
+      setUseAPI(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDeviceId, debouncedSearch, browserFilter, dateFilter, hideSystem, nextCursor, loading]);
+
+  // Reset and reload when filters change
+  useEffect(() => {
+    if (useAPI && selectedDeviceId) {
+      setApiHistory([]);
+      setNextCursor(null);
+      fetchAPIHistory(true);
+    }
+  }, [useAPI, selectedDeviceId, debouncedSearch, browserFilter, dateFilter, hideSystem]);
+
+  // Try to use API if device is selected
+  useEffect(() => {
+    if (selectedDeviceId) {
+      setUseAPI(true);
+    }
+  }, [selectedDeviceId]);
+
+  // Filter mock data
+  const { filteredHistory, total } = useMemo(() => {
+    if (useAPI) {
+      return { filteredHistory: apiHistory, total: apiTotal };
+    }
+
+    const cutoffTimeMs = getDateCutoff();
+    const cutoffTimeWebkit = (cutoffTimeMs * 1000) + WEBKIT_EPOCH_OFFSET;
+
+    let filtered = mockBrowserHistory.filter(item => {
+      if (item.last_visit_time < cutoffTimeWebkit) return false;
+
+      if (debouncedSearch) {
+        const searchLower = debouncedSearch.toLowerCase();
+        const matchesUrl = item.url.toLowerCase().includes(searchLower);
+        const matchesTitle = item.title.toLowerCase().includes(searchLower);
+        if (!matchesUrl && !matchesTitle) return false;
+      }
+
+      if (browserFilter && item.browser_name !== browserFilter) return false;
+
+      if (hideSystem) {
+        if (item.url.startsWith('chrome://') ||
+            item.url.startsWith('edge://') ||
+            item.url.startsWith('about:') ||
+            item.url.startsWith('file://')) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return {
+      filteredHistory: filtered.slice(0, displayCount),
+      total: filtered.length
+    };
+  }, [useAPI, apiHistory, apiTotal, debouncedSearch, browserFilter, dateFilter, hideSystem, displayCount]);
+
+  // Group by date
+  const groupedHistory = useMemo(() => {
+    const grouped: Record<string, BrowserHistory[]> = {};
+
+    filteredHistory.forEach(item => {
+      const unixMs = webkitToUnixMs(item.last_visit_time);
+      const date = new Date(unixMs).toISOString().split('T')[0];
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push(item);
+    });
+
+    return grouped;
+  }, [filteredHistory]);
+
+  // Reset display count when filters change (mock mode)
+  useEffect(() => {
+    if (!useAPI) {
+      setDisplayCount(50);
+    }
+  }, [debouncedSearch, browserFilter, dateFilter, hideSystem, useAPI]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading) {
+          if (useAPI && hasMore) {
+            fetchAPIHistory(false);
+          } else if (!useAPI && displayCount < total) {
+            setDisplayCount(prev => prev + LIMIT);
+          }
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [useAPI, hasMore, displayCount, total, loading, fetchAPIHistory]);
+
+  const formatTime = (timestamp: number) => {
+    const unixMs = webkitToUnixMs(timestamp);
+    const date = new Date(unixMs);
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Hôm nay';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Hôm qua';
+    } else {
+      return date.toLocaleDateString('vi-VN', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  };
+
+  const getDomain = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
+  };
+
+  const getFavicon = (url: string) => {
+    try {
+      const domain = new URL(url).hostname;
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    } catch {
+      return '';
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setBrowserFilter('');
+    setDateFilter('7days');
+    setHideSystem(true);
+  };
+
+  const activeFiltersCount = [
+    searchQuery,
+    browserFilter,
+    dateFilter !== '7days',
+    !hideSystem
+  ].filter(Boolean).length;
+
+  const showHasMore = useAPI ? hasMore : displayCount < total;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lịch sử duyệt web</h1>
-          <p className="text-gray-500 mt-1">Theo dõi hoạt động trình duyệt</p>
+          <p className="text-gray-500 mt-1">
+            {total > 0 ? `${total.toLocaleString()} lượt truy cập` : 'Không có lịch sử'}
+            {!useAPI && <span className="text-orange-600 ml-2">(Dữ liệu mẫu)</span>}
+          </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-200">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-          <Calendar className="w-5 h-5 text-gray-400" />
-          <div className="flex gap-2 flex-wrap">
-            {([
-              { key: 'today', label: 'Hôm nay' },
-              { key: 'week', label: 'Tuần này' },
-              { key: 'month', label: 'Tháng này' }
-            ] as const).map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => setTimeFilter(filter.key)}
-                className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
-                  timeFilter === filter.key
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {filter.label}
-              </button>
+      {/* Error banner */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-red-900">Lỗi tải dữ liệu</h3>
+            <p className="text-sm text-red-700 mt-1">{error}</p>
+            <p className="text-sm text-red-600 mt-1">Đang hiển thị dữ liệu mẫu</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="search"
+            placeholder="Tìm kiếm URL hoặc tiêu đề..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Filter row */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <Filter className="w-5 h-5 text-gray-400" />
+
+          {/* Browser filter */}
+          <select
+            value={browserFilter}
+            onChange={(e) => setBrowserFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Tất cả trình duyệt</option>
+            {mockBrowsers.map(browser => (
+              <option key={browser} value={browser}>{browser}</option>
             ))}
-          </div>
-        </div>
-      </div>
+          </select>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Globe className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs md:text-sm text-gray-600">Tổng trang web</p>
-              <p className="text-xl md:text-2xl font-bold text-gray-900">{mockBrowserHistory.length}</p>
-            </div>
-          </div>
-        </motion.div>
+          {/* Date filter */}
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="7days">7 ngày gần đây</option>
+            <option value="30days">30 ngày gần đây</option>
+            <option value="3months">3 tháng gần đây</option>
+          </select>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs md:text-sm text-gray-600">Tổng lượt truy cập</p>
-              <p className="text-xl md:text-2xl font-bold text-gray-900">
-                {mockBrowserHistory.reduce((sum, item) => sum + item.visitCount, 0)}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-xl p-4 md:p-6 border border-gray-200"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Globe className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs md:text-sm text-gray-600">Trung bình/trang</p>
-              <p className="text-xl md:text-2xl font-bold text-gray-900">
-                {(mockBrowserHistory.reduce((sum, item) => sum + item.visitCount, 0) / mockBrowserHistory.length).toFixed(0)}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl p-6 border border-gray-200"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">Top 5 trang web</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={topSites} layout="vertical">
-            <XAxis type="number" stroke="#9CA3AF" style={{ fontSize: '12px' }} />
-            <YAxis dataKey="name" type="category" stroke="#9CA3AF" style={{ fontSize: '12px' }} width={100} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
-              cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+          {/* Hide system pages */}
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hideSystem}
+              onChange={(e) => setHideSystem(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
             />
-            <Bar dataKey="visits" fill="#3B82F6" radius={[0, 8, 8, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
+            Ẩn trang hệ thống
+          </label>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Trang web
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Domain
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Thời gian
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Lượt truy cập
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {mockBrowserHistory.map((item, index) => (
-                <motion.tr
-                  key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-lg">
-                        {item.favicon}
-                      </div>
-                      <span className="font-medium text-gray-900 max-w-md truncate">
-                        {item.title}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-blue-600 hover:underline cursor-pointer">
-                      {item.domain}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-gray-700">{item.timestamp}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                      {item.visitCount} lần
-                    </span>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Clear filters */}
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="ml-auto flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Xóa bộ lọc ({activeFiltersCount})
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* History list */}
+      <div className="space-y-6">
+        {Object.keys(groupedHistory).length === 0 && !loading && (
+          <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
+            <Globe className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Không tìm thấy lịch sử
+            </h3>
+            <p className="text-gray-500">
+              Thử thay đổi bộ lọc hoặc khoảng thời gian
+            </p>
+          </div>
+        )}
+
+        {Object.entries(groupedHistory).map(([date, items]) => (
+          <div key={date}>
+            {/* Date header */}
+            <div className="flex items-center gap-3 mb-4">
+              <Calendar className="w-5 h-5 text-gray-400" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                {formatDate(date)}
+              </h2>
+              <span className="text-sm text-gray-500">
+                {items.length} lượt truy cập
+              </span>
+            </div>
+
+            {/* History cards */}
+            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+              {items.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.02 }}
+                  className="p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Time */}
+                    <span className="text-sm text-gray-500 font-medium min-w-[3rem]">
+                      {formatTime(item.last_visit_time)}
+                    </span>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* URL with favicon */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <img
+                          src={getFavicon(item.url)}
+                          alt=""
+                          className="w-4 h-4"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline truncate"
+                        >
+                          {getDomain(item.url)}
+                        </a>
+                      </div>
+
+                      {/* Title */}
+                      <h4 className="font-medium text-gray-900 mb-2 line-clamp-2">
+                        {item.title || 'Không có tiêu đề'}
+                      </h4>
+
+                      {/* Meta */}
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        {item.visit_count > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Globe className="w-3 h-3" />
+                            {item.visit_count} lần
+                          </span>
+                        )}
+                        {item.browser_name && (
+                          <span className="px-2 py-0.5 bg-gray-100 rounded-full">
+                            {item.browser_name}
+                          </span>
+                        )}
+                        {item.typed_count > 0 && (
+                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
+                            ⌨️ Đã nhập
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Load more trigger */}
+        {showHasMore && (
+          <div ref={loadMoreRef} className="py-8 text-center">
+            {loading && (
+              <div className="flex items-center justify-center gap-2 text-gray-500">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                <span>Đang tải thêm...</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!showHasMore && filteredHistory.length > 0 && (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            Đã hiển thị tất cả {total.toLocaleString()} lượt truy cập
+          </div>
+        )}
       </div>
     </div>
   );
