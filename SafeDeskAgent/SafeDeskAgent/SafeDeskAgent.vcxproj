@@ -140,6 +140,7 @@
     <ClCompile Include="ComputerInfo.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="HttpClient.cpp" />
+    <ClCompile Include="Installer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Policies.cpp" />
     <ClCompile Include="PowerMonitor.cpp" />
@@ -156,6 +157,7 @@
     <ClInclude Include="ComputerInfo.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="HttpClient.h" />
+    <ClInclude Include="Installer.h" />
     <ClInclude Include="Policies.h" />
     <ClInclude Include="PowerMonitor.h" />
     <ClInclude Include="ProcessMonitor.h" />

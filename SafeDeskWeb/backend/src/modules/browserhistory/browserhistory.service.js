@@ -109,4 +109,19 @@ async function getBrowserHistory(agentId, options = {}) {
     };
 }
 
-module.exports = { addBrowserHistory, getBrowserHistory };
+async function getTopSitesLastWeek(agentId) {
+    // validate agent exists
+    try {
+        await agentModel.findAgentById(agentId);
+    } catch {
+        throw new Error('Invalid agent ID');
+    }
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const topSites = await browserHistoryModel.getTopUrlsLastWeek(agentId, {
+        hideSystem: true,
+        limit: 5
+    });
+    return topSites;
+}
+
+module.exports = { addBrowserHistory, getBrowserHistory, getTopSitesLastWeek };

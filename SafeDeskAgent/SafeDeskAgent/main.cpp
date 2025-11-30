@@ -17,8 +17,6 @@ SERVICE_STATUS g_ServiceStatus = { 0 };
 SERVICE_STATUS_HANDLE g_ServiceStatusHandle = NULL;
 bool g_RunningAsService = false;
 
-#define SERVICE_NAME "SafeDeskService"
-
 void ThreadMonitorApp();
 void ThreadMonitorPower();
 void ThreadMonitorProcess();
@@ -227,61 +225,35 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     }
-    else {
-        //service::ServiceManager::CreateService();
-        //RunMainLogic();
-
-	/*	Policies& policies = Policies::GetInstance();
-		policies.policiesMonitor();*/
-
-		BrowserHistory& browserHistory = BrowserHistory::GetInstance();
-        //std::vector<BrowserItem> history = browserHistory.GetEdgeHistory();
-		BrowserHistoryDB& browserHistoryDB = BrowserHistoryDB::GetInstance();
-		json history = browserHistoryDB.query_all();
-		std::cout << history.dump(4) << std::endl;
-		std::cout << history.size() << std::endl;
+    else if (argc > 1) {
+		std::string installer_token = argv[1];
+		std::cout << "Installer token: " << installer_token << std::endl;
 		HttpClient& httpClient = HttpClient::GetInstance();
-		httpClient.PostBrowserHistory(history);
+        json res = httpClient.SendRequestRegister(installer_token.c_str());
 
+        if (res.is_null()) {
+            std::cerr << "Registration failed." << std::endl;
+			return 1;
+        }
         
-		//std::cout << history.dump(4) << std::endl;
+		std::string agentId = res["agentId"];
+		std::string agentToken = res["agentToken"];
+
+        TokenDB& tokenDB = TokenDB::GetInstance();
+		tokenDB.addToken(agentToken, agentId);
+
+#include "Installer.h"
+        if (RunInstaller()) {
+            
+        }
+
 		return 0;
     }
+    else {
+        service::ServiceManager::CreateService();
+    }
 
-	//LoginDB& sqlite = LoginDB::GetInstance();
-	HttpClient& httpClient = HttpClient::GetInstance();
-	//json res = httpClient.SendRequestRegister("48360504e99351302ca21e5c0ace540dde0f956039b4696729a32e6040bb9483");
-	//if (res.is_null()) {
-	//	std::cout << "Registration failed." << std::endl;
-	//	return -1;
-	//}
-
-	
-
-	//TokenDB& tokenDB = TokenDB::GetInstance();
-	//
-	//if (!tokenDB.addToken(res["agentToken"], res["agentId"])) {
-	//	DEBUG_LOG("Failed to store token in database.");
-	//}
-	//DEBUG_LOG("Response: %s", res.dump().c_str());
-
-	//AppMonitor& appMonitor = AppMonitor::GetInstance();
-	//appMonitor.MonitorApp();
-
-	//PowerMonitor& powerMonitor = PowerMonitor::GetInstance();
-	//powerMonitor.MonitorPowerUsage();
-
-	//ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
-	//processMonitor.MonitorProcessUsage();
-	//PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
-	//json powerUsageJson = powerUsageDB.query_all();
-	//httpClient.PostPowerUsage(powerUsageJson);
-
-	//ProcessUsageDB& processUsageDB = ProcessUsageDB::GetInstance();
-	//json processUsageJson = processUsageDB.query_all();
-	//httpClient.PostProcessUsage(processUsageJson);
 	return 0;
-
 }
 
 void ThreadMonitorApp() {

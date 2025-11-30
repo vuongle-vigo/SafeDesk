@@ -48,6 +48,9 @@
     <Filter Include="Policies">
       <UniqueIdentifier>{51e99c76-f3de-4571-b548-e5f3fdd5c2e5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Installer">
+      <UniqueIdentifier>{68c57aa5-a053-46c7-b713-048c7434df56}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -95,6 +98,9 @@
     <ClCompile Include="Policies.cpp">
       <Filter>Policies</Filter>
     </ClCompile>
+    <ClCompile Include="Installer.cpp">
+      <Filter>Installer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMonitor.h">
@@ -135,6 +141,9 @@
     </ClInclude>
     <ClInclude Include="Policies.h">
       <Filter>Policies</Filter>
+    </ClInclude>
+    <ClInclude Include="Installer.h">
+      <Filter>Installer</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

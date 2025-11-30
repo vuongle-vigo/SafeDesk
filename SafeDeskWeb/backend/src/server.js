@@ -13,6 +13,8 @@ app.use('/data/screenshots', express.static(path.join(__dirname, 'data', 'screen
 // Optional: also expose /screenshots if some code uses that path directly
 app.use('/screenshots', express.static(path.join(__dirname, 'data', 'screenshots')));
 
-app.listen(env.PORT, () => {
+app.use('/installer-files', express.static(path.join(__dirname, 'installer-files')));
+
+app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${env.PORT}`);
 });

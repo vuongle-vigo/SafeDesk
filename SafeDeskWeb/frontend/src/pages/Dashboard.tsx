@@ -2,7 +2,6 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { Clock, AppWindow, Power, AlertTriangle, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
-import { mockTopWebsites } from '../data/mockData';
 import DateRangePicker from '../components/DateRangePicker';
 import { mockAPI } from '../utils/api';
 
@@ -25,7 +24,11 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
 
   const [apiUsage, setApiUsage] = useState<any[] | null>(null);
   const [topApps, setTopApps] = useState<any[]>([]);
-  const [agentStatus, setAgentStatus] = useState<any | null>(null); // <-- new state
+  const [agentStatus, setAgentStatus] = useState<any | null>(null);
+
+  // NEW: top sites state
+  const [topSites, setTopSites] = useState<any[] | null>(null);
+  const [topSitesError, setTopSitesError] = useState<string | null>(null);
 
   function formatDate(d: Date) {
     const y = d.getFullYear();
@@ -116,6 +119,58 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
       }
     }
     loadAgentStatus();
+    return () => { mounted = false; };
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadTopSites() {
+      setTopSites(null);
+      setTopSitesError(null);
+      try {
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        const res = await mockAPI.getTopSitesLastWeek(agentId, token);
+        console.log('Top sites API response:', res.topSites.topSites);
+        if (!mounted) return;
+        if (res.success && Array.isArray(res.topSites.topSites)) {
+          // normalize possible shapes: { url, visits } or { name, visits } etc.
+          console.log('Top sites raw data:', res.topSites);
+          const normalized = (res.topSites.topSites || []).map((s: any) => {
+            const url = s.domain ?? s.name ?? s.site ?? '';
+            const visits = Number(s.visits ?? s.count ?? s.total ?? 0) || 0;
+            return { name: url, visits };
+          }).filter(Boolean);
+          // compute percentage by visits
+          const max = normalized.length ? Math.max(...normalized.map((x:any) => x.visits)) : 0;
+          const withMeta = normalized.map((x:any) => ({
+            ...x,
+            percentage: max ? (x.visits / max) * 100 : 0,
+            time: `${x.visits} lần`
+          }));
+          setTopSites(withMeta);
+        } else {
+          // If API returned raw array (some endpoints return array directly)
+          if (res.success && Array.isArray(res.topSites) === false && Array.isArray(res.topSites ?? res)) {
+            const arr = (res.topSites ?? res) as any[];
+            const normalized = arr.map((s: any) => {
+              const url = s.domain ?? s.name ?? s.site ?? '';
+              const visits = Number(s.visits ?? s.count ?? s.total ?? 0) || 0;
+              return { name: url, visits };
+            });
+            const max = normalized.length ? Math.max(...normalized.map((x:any) => x.visits)) : 0;
+            setTopSites(normalized.map((x:any) => ({ ...x, percentage: max ? (x.visits / max) * 100 : 0, time: `${x.visits} lần` })));
+          } else {
+            setTopSites([]);
+          }
+        }
+      } catch (err: any) {
+        if (!mounted) return;
+        setTopSitesError(err?.message || 'Lỗi khi tải top sites');
+        setTopSites([]);
+      }
+    }
+    loadTopSites();
     return () => { mounted = false; };
   }, [selectedDeviceId]);
 
@@ -453,13 +508,30 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
             <h3 className="text-base md:text-lg font-semibold text-gray-900">Top website được truy cập</h3>
           </div>
           <div className="space-y-3">
-            {mockTopWebsites.slice(0, 6).map((site, index) => {
-              const maxPercentage = Math.max(...mockTopWebsites.map(s => s.percentage));
-              const normalizedWidth = (site.percentage / maxPercentage) * 100;
+            {topSites === null && (
+              // loading skeleton (keeps layout similar to final list)
+              Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-3 animate-pulse">
+                  <div className="w-7 h-7 bg-gray-200 rounded-lg" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-3 bg-gray-200 rounded w-2/3 mb-2"></div>
+                    <div className="h-2 bg-gray-200 rounded w-full"></div>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {topSites !== null && topSites.length === 0 && (
+              <div className="text-sm text-gray-500">Không có dữ liệu</div>
+            )}
+
+            {topSites !== null && topSites.length > 0 && topSites.slice(0, 6).map((site, index) => {
+              const maxPercentage = Math.max(...(topSites.map(s => s.percentage || 0)));
+              const normalizedWidth = maxPercentage ? (site.percentage / maxPercentage) * 100 : 0;
 
               return (
                 <motion.div
-                  key={site.name}
+                  key={site.name + index}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 + index * 0.06 }}

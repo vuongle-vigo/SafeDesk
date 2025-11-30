@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { mockAPI } from '../utils/api';
 
 interface AddDeviceModalProps {
   isOpen: boolean;
@@ -8,45 +9,58 @@ interface AddDeviceModalProps {
 }
 
 export default function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
-  const [deviceName, setDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const handleDownload = () => {
-    if (!deviceName.trim()) {
-      setError('Vui lòng nhập tên thiết bị');
-      return;
-    }
+  // thời gian bắt buộc hiển thị spinner (ms)
+  const PREPARE_DELAY_MS = 1200;
 
+  const handleDownload = async () => {
     setLoading(true);
     setError('');
 
-    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const installerContent = `@echo off\nREM SafeDesk Agent Installer\nREM Token: ${token}\n\necho Installing SafeDesk Agent...\necho Token: ${token}\necho.\necho This installer will connect your device to SafeDesk.\necho Please wait...\n\ntimeout /t 3 /nobreak >nul\n\necho.\necho Installation complete!\necho Your device will appear in the dashboard shortly.\npause\n`;
+    try {
+      const delayP = new Promise((resolve) => setTimeout(resolve, PREPARE_DELAY_MS));
+      const token = localStorage.getItem('token') || '';
 
-    const blob = new Blob([installerContent], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SafeDesk-Installer-${deviceName.replace(/\s+/g, '-')}.bat`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+      // gọi API thật → trả blob
+      const installerReq = mockAPI.generateInstaller(token);
 
-    setSuccess(true);
-    setTimeout(() => {
-      setDeviceName('');
-      setSuccess(false);
+      const [, installerResp] = await Promise.all([delayP, installerReq]);
+
+      if (!installerResp.success || !installerResp.blob) {
+        setError(installerResp.error || 'Không thể tạo installer');
+        setLoading(false);
+        return;
+      }
+
+      // File blob từ BE
+      const blob = installerResp.blob;
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SafeDesk-Installer-${Date.now()}.bat`; // tên file tải về
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        setLoading(false);
+        onClose();
+      }, 2000);
+    } catch (err: any) {
+      setError(err?.message || 'Lỗi khi tạo installer');
       setLoading(false);
-      onClose();
-    }, 2000);
+    }
   };
 
   const handleClose = () => {
     if (!loading) {
-      setDeviceName('');
       setError('');
       setSuccess(false);
       onClose();
@@ -112,14 +126,12 @@ export default function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps)
                 ) : (
                   <>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-blue-900 mb-2">
-                        Hướng dẫn sử dụng:
-                      </h3>
+                      <h3 className="font-semibold text-blue-900 mb-2">Hướng dẫn sử dụng:</h3>
                       <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                        <li>Nhập tên thiết bị bạn muốn thêm</li>
-                        <li>Tải về file installer</li>
-                        <li>Chạy installer trên thiết bị đích</li>
-                        <li>Thiết bị sẽ tự động kết nối và hiển thị trong danh sách</li>
+                        <li>Tải về file installer.</li>
+                        <li>Chạy installer trong vòng 15 phút kể từ lúc tải.</li>
+                        <li>Chạy file với quyền Administrator.</li>
+                        <li>Thiết bị sẽ tự động kết nối và hiển thị trong dashboard.</li>
                       </ol>
                     </div>
 
@@ -134,39 +146,26 @@ export default function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps)
                       </motion.div>
                     )}
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tên thiết bị
-                      </label>
-                      <input
-                        type="text"
-                        value={deviceName}
-                        onChange={(e) => setDeviceName(e.target.value)}
-                        placeholder="VD: PC phòng làm việc"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        disabled={loading}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !loading) {
-                            handleDownload();
-                          }
-                        }}
-                      />
-                      <p className="text-xs text-gray-500 mt-2">
-                        Tên này sẽ giúp bạn nhận diện thiết bị trong danh sách
-                      </p>
-                    </div>
-
                     <div className="flex gap-3">
                       <motion.button
                         whileHover={{ scale: loading ? 1 : 1.02 }}
                         whileTap={{ scale: loading ? 1 : 0.98 }}
                         onClick={handleDownload}
-                        disabled={loading || !deviceName.trim()}
+                        disabled={loading}
                         className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
-                        <Download className="w-5 h-5" />
-                        <span>Tải về Installer</span>
+                        {loading ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                            className="w-5 h-5 rounded-full border-2 border-white border-t-transparent"
+                          />
+                        ) : (
+                          <Download className="w-5 h-5" />
+                        )}
+                        <span>{loading ? 'Đang chuẩn bị...' : 'Tải về Installer'}</span>
                       </motion.button>
+
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}

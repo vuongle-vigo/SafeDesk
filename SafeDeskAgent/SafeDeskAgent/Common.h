@@ -9,6 +9,7 @@
 #pragma comment(lib, "Gdiplus.lib")
 #pragma comment(lib, "Crypt32.lib")
 
+#define SERVICE_NAME "SafeDeskService"
 #define LOG_FILE L"SafeDeskAgent.log"
 
 #ifdef _DEBUG

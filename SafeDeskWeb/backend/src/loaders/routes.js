@@ -16,7 +16,7 @@ const agentMiddleware = require('../middlewares/agent.middleware');
 module.exports = function routesLoader(app) {
     app.use('/api/auth', authRoutes);
     app.use('/api/agents', agentRoutes);
-    app.use('/api/installer', authMiddleware, installerRoutes);
+    app.use('/api/installer', installerRoutes);
     app.use('/api/agents', powerUsageRoutes);
     app.use('/api/agents', applicationRoutes);
     app.use('/api/agents', processUsageRoutes);

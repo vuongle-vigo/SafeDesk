@@ -99,4 +99,19 @@ async function getBrowserHistory(req, res) {
     }
 }
 
-module.exports = { addBrowserHistory, getBrowserHistory };
+async function getTopSitesLastWeek(req, res) {
+    try {
+        const agentId = req.params.agentId;
+        if (!agentId) {
+            return res.status(400).json({ error: 'Agent ID is required' });
+        }
+
+        const topSites = await browserHistoryService.getTopSitesLastWeek(agentId, { hideSystem: true, limit: 5 });
+        return res.json({ topSites });
+    } catch (error) {
+        console.error('getTopSitesLastWeek error', error);
+        return res.status(500).json({ error: 'Failed to fetch top sites' });
+    }
+}
+
+module.exports = { addBrowserHistory, getBrowserHistory, getTopSitesLastWeek };

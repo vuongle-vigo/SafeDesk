@@ -155,4 +155,65 @@ async function countBrowserHistory(options = {}) {
     }
 }
 
-module.exports = { addSingleBrowserHistory, getBrowserHistory, countBrowserHistory };
+async function getTopUrlsLastWeek(agentId, options = {}) {
+    const { hideSystem = true, limit = 5 } = options;
+
+    if (!agentId) {
+        throw new Error('agentId is required for getTopUrlsLastWeek');
+    }
+
+    const parsedLimit = Math.min(Math.max(parseInt(String(limit || 5), 10) || 5, 1), 100);
+
+    // 7 days ago in Unix ms
+    const weekFromMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const webkitFrom = unixMsToWebkit(weekFromMs);
+
+    const conditions = [];
+    conditions.push(`agent_id = ${escapeString(agentId)}`);
+    conditions.push(`last_visit_time >= ${webkitFrom}`);
+    conditions.push(`url IS NOT NULL AND url != ''`);
+
+    if (hideSystem) {
+        conditions.push("url NOT LIKE 'chrome://%'");
+        conditions.push("url NOT LIKE 'edge://%'");
+        conditions.push("url NOT LIKE 'about:%'");
+        conditions.push("url NOT LIKE 'file://%'");
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Extract domain: remove protocol, take part before first '/', strip port, remove leading www.
+    const domainExpr = `
+LOWER(
+  REPLACE(
+    SUBSTRING_INDEX(
+      SUBSTRING_INDEX(
+        REPLACE(REPLACE(url, 'http://', ''), 'https://', ''),
+        '/', 1
+      ),
+      ':', 1
+    ),
+    'www.', ''
+  )
+)
+`.trim();
+
+    const sql = `
+        SELECT ${domainExpr} AS domain, COUNT(*) AS visits
+        FROM browser_history
+        ${whereClause}
+        GROUP BY domain
+        ORDER BY visits DESC
+        LIMIT ${parsedLimit}
+    `;
+
+    try {
+        const rows = await db.query(sql);
+        return rows;
+    } catch (err) {
+        console.error('getTopUrlsLastWeek query failed', { sql: sql.trim(), err: err && err.message ? err.message : err });
+        throw err;
+    }
+}
+
+module.exports = { addSingleBrowserHistory, getBrowserHistory, countBrowserHistory, getTopUrlsLastWeek };

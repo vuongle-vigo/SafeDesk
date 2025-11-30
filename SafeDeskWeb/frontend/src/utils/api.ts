@@ -10,6 +10,7 @@ export const BASE_URL =
   // fallback to empty -> same origin
   '';
 
+  console.log('BASE_URL = ', BASE_URL);
 
 interface AppUsage {
   app_id: number;
@@ -833,5 +834,63 @@ export const mockAPI = {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Network error' };
     }
-  }
+  },
+
+  getTopSitesLastWeek: async (
+    agentId: string,
+    token?: string
+  ): Promise<{ success: boolean; topSites?: any[]; error?: string }> => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${BASE_URL}/api/agents/${encodeURIComponent(agentId)}/history/top-sites-last-week`, {
+        method: 'GET',
+        headers
+
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data?.error || data?.message || 'Failed to fetch top sites last week' };
+      }
+      return { success: true, topSites: data };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error' };
+    }
+  },
+
+  generateInstaller: async (token?: string): Promise<{ success: boolean; blob?: Blob; error?: string }> => {
+    try {
+      console.log('Generating installer token ', token);
+
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/installer/generate-token`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Failed to generate installer';
+        try {
+          const errJson = await res.json();
+          errMsg = errJson.error || errJson.message || errMsg;
+        } catch {
+          try {
+            errMsg = await res.text();
+          } catch {}
+        }
+        return { success: false, error: errMsg };
+      }
+
+      const blob = await res.blob();
+      return { success: true, blob };
+    } catch (err: any) {
+      console.warn('generateInstaller failed', err);
+      return { success: false, error: err?.message || 'Unexpected error' };
+    }
+  },
+
 };
+
+export default mockAPI;

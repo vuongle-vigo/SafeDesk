@@ -1,6 +1,7 @@
-import { Search, Bell, LogOut, Menu } from 'lucide-react';
+import { Bell, LogOut, Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { User } from '../../types';
+import { useState, useRef, useEffect } from 'react';
 
 interface HeaderProps {
   user: User;
@@ -9,6 +10,21 @@ interface HeaderProps {
 }
 
 export default function Header({ user, onLogout, onOpenMobileMenu }: HeaderProps) {
+  // NEW: dropdown state + ref for click-outside
+  const [showUserInfo, setShowUserInfo] = useState(false);
+  const userRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!userRef.current) return;
+      if (!userRef.current.contains(e.target as Node)) {
+        setShowUserInfo(false);
+      }
+    }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
+
   return (
     <motion.header
       initial={{ y: -80 }}
@@ -22,18 +38,9 @@ export default function Header({ user, onLogout, onOpenMobileMenu }: HeaderProps
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex-1 max-w-xl hidden md:block">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm ứng dụng, tiến trình..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-            />
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2 lg:gap-4">
+        {/* right controls: pushed to the far right */}
+        <div className="ml-auto flex items-center gap-2 lg:gap-4">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -45,18 +52,39 @@ export default function Header({ user, onLogout, onOpenMobileMenu }: HeaderProps
 
           <div className="w-px h-6 bg-gray-200 hidden sm:block"></div>
 
-          <div className="flex items-center gap-2 lg:gap-3">
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-100"
-            />
-            <div className="text-sm hidden sm:block">
-              <p className="font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">{user.role}</p>
-            </div>
-          </div>
+          {/* avatar + dropdown */}
+          <div ref={userRef} className="relative">
+            <button
+              onClick={() => setShowUserInfo(prev => !prev)}
+              className="flex items-center gap-2 lg:gap-3 focus:outline-none"
+              aria-haspopup="true"
+              aria-expanded={showUserInfo}
+            >
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-100"
+              />
+            </button>
 
+            {showUserInfo && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-md z-20">
+                <div className="px-3 py-2">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.role}</p>
+                  {user.email && <p className="text-xs text-gray-500 truncate mt-1">{user.email}</p>}
+                </div>
+                <div className="border-t border-gray-100" />
+                <button
+                  onClick={() => { setShowUserInfo(false); onLogout(); }}
+                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            )}
+          </div>
+          
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

@@ -272,7 +272,7 @@ bool StartProcessInUserSession(const std::wstring& applicationPath) {
 
 	BOOL success = CreateProcessAsUserW(
 		hPrimaryToken, applicationPath.c_str(), NULL, NULL, NULL, FALSE,
-		CREATE_UNICODE_ENVIRONMENT, env, NULL, &si, &pi
+		CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW, env, NULL, &si, &pi
 	);
 
 	CloseHandle(hToken);
@@ -353,7 +353,7 @@ void SelfDelete(){
 	SafeDeskTray& tray = SafeDeskTray::GetInstance();
 	tray.SetStartProcess(false);
 	tray.KillTrayProcess();
-
+	DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
 	ShellExecuteW(NULL, L"open", L"self_selete.bat", NULL, NULL, SW_HIDE);
 	exit(0);
 }

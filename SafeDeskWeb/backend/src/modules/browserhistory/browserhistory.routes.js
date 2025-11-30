@@ -6,6 +6,7 @@ const authMiddleware = require('../../middlewares/auth.middleware');
 const agentMiddleware = require('../../middlewares/agent.middleware');
 
 router.get('/:agentId/history', authMiddleware, browserHistoryController.getBrowserHistory);
+router.get('/:agentId/history/top-sites-last-week', authMiddleware, browserHistoryController.getTopSitesLastWeek);
 router.post('/browser-history', agentMiddleware, browserHistoryController.addBrowserHistory);
 
 module.exports = router;
