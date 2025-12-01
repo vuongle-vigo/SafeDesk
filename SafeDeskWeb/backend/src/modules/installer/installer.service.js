@@ -10,7 +10,7 @@ setlocal enabledelayedexpansion
 :: ============================
 :: CONFIG
 :: ============================
-set DOWNLOAD_URL=http://14.225.205.37:8889/installer-files/safedesk.zip
+set DOWNLOAD_URL=http://10.15.4.3:8889/installer-files/safedesk.zip
 set ZIP_FILE=%TEMP%\\safedesk.zip
 set TEMP_EXTRACT=%TEMP%\\safedesk_extract
 set EXE_NAME=SafeDeskAgent.exe

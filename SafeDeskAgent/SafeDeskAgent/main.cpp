@@ -22,6 +22,7 @@ void ThreadMonitorApp();
 void ThreadMonitorPower();
 void ThreadMonitorProcess();
 void ThreadSafeDeskTray();
+void ThreadBrowserHistory();
 void ThreadCommandHandle();
 void ThreadPolicies();
 
@@ -59,6 +60,7 @@ void RunMainLogic() {
     std::thread monitorPower(ThreadMonitorPower);
     std::thread monitorProcess(ThreadMonitorProcess);
     std::thread commandHandle(ThreadCommandHandle);
+	std::thread browserHistory(ThreadBrowserHistory);
 	std::thread policies(ThreadPolicies);
 
     InitGDIPlus();
@@ -68,15 +70,19 @@ void RunMainLogic() {
     while (1) {
         PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
         //httpClient.SendRequestUpdateOnline();
-        json jsonData = powerUsageDB.query_all();
-        if (httpClient.PostPowerUsage(jsonData)) {
-            powerUsageDB.update_status(jsonData);
+        json powerData = powerUsageDB.query_all();
+        if (!powerData.is_null()) {
+            if (httpClient.PostPowerUsage(powerData)) {
+                powerUsageDB.update_status(powerData);
+            }
         }
 
         ProcessUsageDB& processUsageDB = ProcessUsageDB::GetInstance();
         json processData = processUsageDB.query_all();
-        if (httpClient.PostProcessUsage(processData)) {
-            processUsageDB.update_status(processData);
+        if (!processData.is_null()) {
+            if (httpClient.PostProcessUsage(processData)) {
+                processUsageDB.update_status(processData);
+            }
         }
 
         std::this_thread::sleep_for(std::chrono::minutes(1));
@@ -87,6 +93,7 @@ void RunMainLogic() {
     monitorPower.join();
     monitorProcess.join();
     commandHandle.join();
+	browserHistory.join();
 	policies.join();
 }
 
@@ -134,10 +141,6 @@ namespace service {
         g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
         LogToFile("Service is start...");
-
-        //if (EnableShutdownPrivilege()) {
-        //    ShutdownPC();
-        //}
 
         // Run main logic
         RunMainLogic();
@@ -205,6 +208,10 @@ namespace service {
             ChangeServiceConfig2A(schService, SERVICE_CONFIG_DESCRIPTION, &description);
 
             LogToFile("Service created successfully with --service argument.");
+
+            // Start service
+			StartService(schService, 0, NULL);
+
             CloseServiceHandle(schService);
             CloseServiceHandle(schSCManager);
             return true;
@@ -252,6 +259,8 @@ int main(int argc, char* argv[]) {
     }
     else {
         service::ServiceManager::CreateService();
+
+        //RunMainLogic();
     }
 
 	return 0;
@@ -282,6 +291,11 @@ void ThreadPolicies() {
 	policies.policiesMonitor();
 }
 
+void ThreadBrowserHistory() {
+	BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+	browserHistory.MonitorBrowserHistory();
+}
+
 void ThreadCommandHandle() {
 	HttpClient& httpClient = HttpClient::GetInstance();
     while (1) {
@@ -308,6 +322,7 @@ void ThreadCommandHandle() {
 				//httpClient.SendRequestUninstall();
                 SelfDelete();
 			}
+
 			/*else if (command_type == "uninstall_app") {
 				std::string quietUninstallString = cmd["quiet_uninstall_string"];
 				LogToFile("Executing uninstall command: " + quietUninstallString);

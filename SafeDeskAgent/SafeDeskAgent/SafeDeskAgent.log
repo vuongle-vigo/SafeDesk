@@ -426,3 +426,8 @@ age: 0.100000 minutes
 2025-11-26 10:14: Failed to prepare statement: no such table: browser_history
 2025-11-26 10:15: Failed to prepare statement: no such table: browser_history
 2025-11-26 10:15: Failed to prepare statement: no such table: browser_history
+2025-12-01 16:10: Starting SafeDeskTray process from path: C:\Users\levuong\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\SafeDeskTray.exe
+2025-12-01 16:10: Failed to send message to driver for database path: \Device\HarddiskVolume3\Users\levuong\Documents\GitHub\SafeDesk\SafeDeskAgent\x64\Debug\sqlite_db\safekids.db
+2025-12-01 16:10: Creating pipe for new client...
+2025-12-01 16:10: Waiting for client...
+2025-12-01 16:10: Failed to start SafeDeskTray process.

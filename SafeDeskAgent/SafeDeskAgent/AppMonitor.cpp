@@ -268,7 +268,6 @@ bool AppMonitor::ExecuteUninstall(const std::string& quietUninstallString) {
 void AppMonitor::MonitorApp() {
     HttpClient& httpClient = HttpClient::GetInstance();
     AppDB& appDB = AppDB::GetInstance();
-    ConfigMonitor& configMonitor = ConfigMonitor::GetInstance();
     while (1) {
 		DEBUG_LOG("AppMonitor: Checking installed applications...");
         QueryInstalledApplications();
@@ -276,33 +275,6 @@ void AppMonitor::MonitorApp() {
             json appJson = GetInstalledAppJson();
             if (httpClient.PostApplication(appJson)) {
 				m_bNeedPostApp = false;
-            }
-        }
-
-        ConfigMonitor::AppConfig configApps = configMonitor.GetConfig().config_apps;
-        for (const auto& app : configApps.uninstall) {
-            std::cout << "Checking if app is installed: " << app.name << std::endl;
-            //check if app.name in json app
-            bool found = false;
-            for (const auto& installedApp : m_vAppInfo) {
-                if (WstringToString(installedApp.m_sAppName) == app.name) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                std::cout << "App not found: " << app.name << std::endl;
-                continue;
-            }
-
-            std::cout << "Uninstalling app: " << app.name << std::endl;
-            // Uninstall the application using its quiet uninstall string
-            if (!ExecuteUninstall(app.app_id)) {
-                std::cerr << "Failed to uninstall app: " << app.name << std::endl;
-            }
-            else {
-                std::cout << "Successfully uninstalled app: " << app.name << std::endl;
             }
         }
 
