@@ -354,7 +354,8 @@ void SelfDelete(){
 	SafeDeskTray& tray = SafeDeskTray::GetInstance();
 	tray.SetStartProcess(false);
 	tray.KillTrayProcess();
-	//DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
+	DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
+	Sleep(2000); // Wait for service deletion
 	ShellExecuteW(NULL, L"open", (curDir + L"self_delete.bat").c_str(), NULL, NULL, SW_HIDE);
 	exit(0);
 }
