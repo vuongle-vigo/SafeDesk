@@ -11,6 +11,7 @@
 #include "CaptureScreen.h"
 #include "BrowserHistory.h"
 #include "Policies.h"
+#include "Installer.h"
 
 // Global for service variable
 SERVICE_STATUS g_ServiceStatus = { 0 };
@@ -235,14 +236,14 @@ int main(int argc, char* argv[]) {
             std::cerr << "Registration failed." << std::endl;
 			return 1;
         }
-        
+		std::cout << "Registration successful: " << res.dump() << std::endl;
+
 		std::string agentId = res["agentId"];
 		std::string agentToken = res["agentToken"];
 
         TokenDB& tokenDB = TokenDB::GetInstance();
 		tokenDB.addToken(agentToken, agentId);
 
-#include "Installer.h"
         if (RunInstaller()) {
             
         }
