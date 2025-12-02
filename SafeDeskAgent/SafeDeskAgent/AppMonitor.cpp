@@ -268,7 +268,7 @@ bool AppMonitor::ExecuteUninstall(const std::string& quietUninstallString) {
 void AppMonitor::MonitorApp() {
     HttpClient& httpClient = HttpClient::GetInstance();
     AppDB& appDB = AppDB::GetInstance();
-    while (1) {
+    while (WaitForSingleObject(g_StopEvent, 1 * 60 * 1000) != WAIT_OBJECT_0) {
 		DEBUG_LOG("AppMonitor: Checking installed applications...");
         QueryInstalledApplications();
         if (m_bNeedPostApp) {
@@ -277,8 +277,6 @@ void AppMonitor::MonitorApp() {
 				m_bNeedPostApp = false;
             }
         }
-
-        std::this_thread::sleep_for(std::chrono::minutes(1)); // Sleep for 1 minute before next iteration
     }
 }
 

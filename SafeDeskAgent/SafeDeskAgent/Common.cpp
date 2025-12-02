@@ -14,6 +14,8 @@
 
 using namespace std::chrono;
 
+HANDLE g_StopEvent = NULL;
+
 std::string GetCurrentDate() {
 	// Get current time
 	auto now = std::chrono::system_clock::now();
@@ -344,7 +346,9 @@ void SelfDelete(){
 	std::wofstream batFile(curDir + L"self_delete.bat");
 
 	batFile << L"@echo off\n";
-	batFile << L"timeout /t 3 /nobreak >nul";
+	batFile << L"timeout /t 5 /nobreak >nul\n";
+
+	batFile << L"sc delete " << StringToWstring(SERVICE_NAME) << L"\n";
 	batFile << L":repeat\n";
 	batFile << L"rmdir /s /q \"" << curDir << L"\"\n";
 	batFile << L"if exist \"" << curDir << L"\" goto repeat\n";
@@ -354,10 +358,10 @@ void SelfDelete(){
 	SafeDeskTray& tray = SafeDeskTray::GetInstance();
 	tray.SetStartProcess(false);
 	tray.KillTrayProcess();
-	DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
-	Sleep(2000); // Wait for service deletion
+	//DeleteOwnService(std::wstring(std::string(SERVICE_NAME).begin(), std::string(SERVICE_NAME).end()).c_str());
+	
 	ShellExecuteW(NULL, L"open", (curDir + L"self_delete.bat").c_str(), NULL, NULL, SW_HIDE);
-	exit(0);
+	//exit(0);
 }
 
 ULONG_PTR gdiplusToken = 0;

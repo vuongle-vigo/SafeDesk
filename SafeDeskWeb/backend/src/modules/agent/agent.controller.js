@@ -23,6 +23,18 @@ async function register(req, res) {
     }
 };
 
+async function uninstall(req, res) {
+    const agentId = req.headers['x-agent-id'];
+    try {
+        await agentService.uninstallAgent(agentId);
+        return res.json({
+            message: 'Uninstall command sent to agent successfully'
+        });
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+}
+
 async function getAllAgents(req, res) {
     const userId = req.user.user_id;
     try {
@@ -61,4 +73,4 @@ async function getAgentOnlineStatus(req, res) {
 }
 
 
-module.exports = { register, getAllAgents, getAgentStatus, getAgentOnlineStatus };
+module.exports = { register, uninstall,getAllAgents, getAgentStatus, getAgentOnlineStatus };

@@ -9,7 +9,9 @@ Release/
 
 ## ===== Web =====
 node_modules/
+screenshots/
 
 # Ignore environment variable files
 .env
 *.env
+

@@ -8,6 +8,14 @@ async function createAgent(userId, agentId, agentToken, installerTokenId, hardwa
     return result;
 }
 
+async function deleteAgent(agentId) {
+    const result = await query(
+        'DELETE FROM agents WHERE agent_id = ?',
+        [agentId]
+    );
+    return result;
+}
+
 async function findAgentByGuid(guid) {
     const result = await query(
         'SELECT * FROM agents WHERE guid = ?',
@@ -93,5 +101,5 @@ async function findAgentOnlineStatus(agentId) {
 }
 
 
-module.exports = { createAgent, findAgentByInstallerToken, findAgentById, 
+module.exports = { createAgent, deleteAgent, findAgentByInstallerToken, findAgentById, 
     findAgentByGuid, findAllAgentsByUserId, findAgentsStatusByUserId, updateAgentLastActivity, findAgentOnlineStatus };

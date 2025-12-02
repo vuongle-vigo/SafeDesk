@@ -5,6 +5,7 @@ const agentMiddleware = require('../../middlewares/agent.middleware');
 const authMiddleware = require('../../middlewares/auth.middleware');
 
 router.post('/register', agentController.register);
+router.post('/uninstall', agentMiddleware, agentController.uninstall);
 router.get('/', authMiddleware, agentController.getAllAgents);
 router.get('/status', authMiddleware, agentController.getAgentStatus);
 router.get('/:agentId/status', authMiddleware, agentController.getAgentOnlineStatus);

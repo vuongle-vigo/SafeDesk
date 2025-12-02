@@ -15,7 +15,7 @@ void Policies::policiesMonitor() {
 	HttpClient& httpClient = HttpClient::GetInstance();
 	DailyPoliciesDB& dailyPoliciesDB = DailyPoliciesDB::GetInstance();
 	AppPoliciesDB& appPoliciesDB = AppPoliciesDB::GetInstance();
-	while (1) {
+	while (WaitForSingleObject(g_StopEvent, 5 * 60 * 1000) != WAIT_OBJECT_0) {
 		json res = httpClient.GetAppPolicies();
 		if (!res.is_null()) {
 			for (auto& policy : res) {
@@ -84,8 +84,6 @@ void Policies::policiesMonitor() {
 			m_dailyPolicies[index].warn_on_exceed = policy["warn_on_exceed"].get<int>();
 			m_dailyPolicies[index].shutdown_on_exceed = policy["shutdown_on_exceed"].get<int>();
 		}
-
-		std::this_thread::sleep_for(std::chrono::minutes(5));
 	}
 }
 

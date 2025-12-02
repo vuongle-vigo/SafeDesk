@@ -35,7 +35,7 @@ void PowerMonitor::MonitorPowerUsage() {
     PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
 	Policies& policies = Policies::GetInstance();
     SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
-    while (true) {
+    while (WaitForSingleObject(g_StopEvent, 1 * 60 * 1000) != WAIT_OBJECT_0) {
         std::cout << "Monitoring power usage..." << std::endl;
         int current_hour = atoi(GetCurrentTimeHour().c_str());
         int current_minute = atoi(GetCurrentTimeMinute().c_str());
@@ -46,7 +46,6 @@ void PowerMonitor::MonitorPowerUsage() {
         // Get today's config
 		DailyPolicy configMonitor = policies.getDailyPolicy();
 		if (configMonitor.enabled == 0) {
-			std::this_thread::sleep_for(std::chrono::minutes(1));
 			continue; // Skip if monitoring is disabled for today
 		}
 
@@ -90,9 +89,6 @@ void PowerMonitor::MonitorPowerUsage() {
 				safeDeskTray.SendMessageToTray(NOTI_LABEL + std::wstring(L"|Warning: Daily usage limit exceeded!"));
 			}   
         }
-
-        // Sleep for 1 minute before next check
-        std::this_thread::sleep_for(std::chrono::minutes(1));
     }
 }
 

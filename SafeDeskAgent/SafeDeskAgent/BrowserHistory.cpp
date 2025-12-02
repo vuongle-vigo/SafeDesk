@@ -93,7 +93,7 @@ std::vector<BrowserItem> BrowserHistory::GetEdgeHistory() {
 }
 
 void BrowserHistory::MonitorBrowserHistory() {
-	while (true) {
+	while (WaitForSingleObject(g_StopEvent, 5 * 60 * 1000) != WAIT_OBJECT_0) {
 		std::vector<BrowserItem> history = GetEdgeHistory();
 		BrowserHistoryDB& browserHistoryDB = BrowserHistoryDB::GetInstance();
 		for (const auto& item : history) {
@@ -117,6 +117,5 @@ void BrowserHistory::MonitorBrowserHistory() {
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::minutes(5));
 	}
 }

@@ -40,6 +40,15 @@ async function registerAgent(installerToken, hardwareInfo) {
     return { agentId, agentToken };
 }
 
+async function uninstallAgent(agentId) {
+    const agent = await agentModel.findAgentById(agentId);
+    if (!agent) {
+        throw new Error('Agent not found');
+    }
+
+    await agentModel.deleteAgent(agentId);
+}
+
 async function getAllAgents(userId) {
     const agents = await agentModel.findAllAgentsByUserId(userId);
     return agents;
@@ -56,4 +65,4 @@ async function checkAgentOnlineStatus(agentId) {
 }
 
 
-module.exports = { registerAgent, getAllAgents, getAgentsStatus, checkAgentOnlineStatus };
+module.exports = { registerAgent, uninstallAgent, getAllAgents, getAgentsStatus, checkAgentOnlineStatus };

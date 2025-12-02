@@ -28,6 +28,7 @@
 #endif
 
 extern ULONG_PTR gdiplusToken;
+extern HANDLE g_StopEvent;
 
 std::string GetCurrentDate();
 std::string GetCurrentTimeHour();

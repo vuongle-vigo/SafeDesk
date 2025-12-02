@@ -1,22 +1,30 @@
-#include <iostream>
 #include "HttpClient.h"
+#include <iostream>
+#include <atomic>
+#include <thread>
+#include <windows.h>
+
 #include "SQLiteDB.h"
 #include "ProcessMonitor.h"
 #include "AppMonitor.h"
 #include "PowerMonitor.h"
 #include "SafeDeskTray.h"
 #include "Communication.h"
-#include <thread>
 #include "Common.h"
 #include "CaptureScreen.h"
 #include "BrowserHistory.h"
 #include "Policies.h"
 #include "Installer.h"
 
-// Global for service variable
+// ---------------- GLOBALS ----------------
+
 SERVICE_STATUS g_ServiceStatus = { 0 };
 SERVICE_STATUS_HANDLE g_ServiceStatusHandle = NULL;
 bool g_RunningAsService = false;
+
+std::atomic<bool> g_ServiceStopping(false);
+
+// ---------------- THREAD FUNCTIONS ----------------
 
 void ThreadMonitorApp();
 void ThreadMonitorPower();
@@ -26,90 +34,37 @@ void ThreadBrowserHistory();
 void ThreadCommandHandle();
 void ThreadPolicies();
 
-static void SetRecoveryOptions(SC_HANDLE hService) {
-    SC_ACTION actions[3];
-    actions[0].Type = SC_ACTION_RESTART;  // Restart on first failure
-    actions[0].Delay = 5000;              // 5 seconds
-    actions[1].Type = SC_ACTION_RESTART;  // Restart on second failure
-    actions[1].Delay = 5000;
-    actions[2].Type = SC_ACTION_RESTART;  // Restart on all failures
-    actions[2].Delay = 5000;
+// ---------------- SERVICE STOP HANDLER ----------------
 
-    SERVICE_FAILURE_ACTIONSA failureActions = {};
-    failureActions.dwResetPeriod = 0;       // Reset failure count (0 = never reset)
-    failureActions.lpCommand = NULL;
-    failureActions.lpRebootMsg = NULL;
-    failureActions.cActions = 3;
-    failureActions.lpsaActions = actions;
+void StopServiceClean()
+{
+    bool expected = false;
+    if (!g_ServiceStopping.compare_exchange_strong(expected, true))
+        return;
 
-    if (!ChangeServiceConfig2A(hService, SERVICE_CONFIG_FAILURE_ACTIONS, &failureActions)) {
-        LogToFile("Failed to set service recovery options: " + std::to_string(GetLastError()));
-    }
-    else {
-        LogToFile("Service recovery configured successfully.");
-    }
+    g_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
+    g_ServiceStatus.dwWin32ExitCode = 0;
+    g_ServiceStatus.dwWaitHint = 30000;
+    SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
+
+    if (g_StopEvent)
+        SetEvent(g_StopEvent);
 }
 
-
-void RunMainLogic() {
-    // Main logic of the application goes here
-    HttpClient& httpClient = HttpClient::GetInstance();
-
-    std::thread safeDeskTray(ThreadSafeDeskTray);
-    std::thread monitorApp(ThreadMonitorApp);
-    std::thread monitorPower(ThreadMonitorPower);
-    std::thread monitorProcess(ThreadMonitorProcess);
-    std::thread commandHandle(ThreadCommandHandle);
-	std::thread browserHistory(ThreadBrowserHistory);
-	std::thread policies(ThreadPolicies);
-
-    InitGDIPlus();
-    InitSelfProtectDriver();   
-
-    //while (g_ServiceStatus.dwCurrentState == SERVICE_RUNNING) {
-    while (1) {
-        PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
-        //httpClient.SendRequestUpdateOnline();
-        json powerData = powerUsageDB.query_all();
-        if (!powerData.is_null()) {
-            if (httpClient.PostPowerUsage(powerData)) {
-                powerUsageDB.update_status(powerData);
-            }
-        }
-
-        ProcessUsageDB& processUsageDB = ProcessUsageDB::GetInstance();
-        json processData = processUsageDB.query_all();
-        if (!processData.is_null()) {
-            if (httpClient.PostProcessUsage(processData)) {
-                processUsageDB.update_status(processData);
-            }
-        }
-
-        std::this_thread::sleep_for(std::chrono::minutes(1));
-    }
-
-    safeDeskTray.join();
-    monitorApp.join();
-    monitorPower.join();
-    monitorProcess.join();
-    commandHandle.join();
-	browserHistory.join();
-	policies.join();
-}
+// ---------------- SERVICE CTRL HANDLER ----------------
 
 namespace service {
-    // Function controller for the service
-    void WINAPI ServiceCtrlHandler(DWORD dwControl) {
-        switch (dwControl) {
+
+    void WINAPI ServiceCtrlHandler(DWORD dwControl)
+    {
+        switch (dwControl)
+        {
         case SERVICE_CONTROL_STOP:
         case SERVICE_CONTROL_SHUTDOWN:
-            g_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
-            SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
-            //g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
-            //SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
-            g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
-            LogToFile("Service stopped.");
+            LogToFile("Service received STOP/SHUTDOWN control.");
+            StopServiceClean();
             break;
+
         default:
             break;
         }
@@ -117,220 +72,328 @@ namespace service {
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
     }
 
-    // Service main function
-    void WINAPI ServiceMain(DWORD argc, LPSTR* argv) {
-         LogToFile("Service is init...");
+    // ---------------- DISABLE AUTO-RESTART ----------------
+
+    bool DisableServiceAutoRestart(const char* serviceName)
+    {
+        SC_HANDLE hSCM = OpenSCManagerA(NULL, NULL, SC_MANAGER_CONNECT);
+        if (!hSCM) return false;
+
+        SC_HANDLE hService = OpenServiceA(
+            hSCM, serviceName,
+            SERVICE_CHANGE_CONFIG | SERVICE_QUERY_CONFIG
+        );
+        if (!hService)
+        {
+            CloseServiceHandle(hSCM);
+            return false;
+        }
+
+        SC_ACTION action;
+        action.Type = SC_ACTION_NONE;
+        action.Delay = 0;
+
+        SERVICE_FAILURE_ACTIONS fa;
+        ZeroMemory(&fa, sizeof(fa));
+        fa.dwResetPeriod = 0;
+        fa.cActions = 1;
+        fa.lpsaActions = &action;
+
+        if (!ChangeServiceConfig2A(hService, SERVICE_CONFIG_FAILURE_ACTIONS, &fa))
+        {
+            CloseServiceHandle(hService);
+            CloseServiceHandle(hSCM);
+            return false;
+        }
+
+        DWORD flag = 0;
+        ChangeServiceConfig2A(hService, SERVICE_CONFIG_FAILURE_ACTIONS_FLAG, &flag);
+
+        CloseServiceHandle(hService);
+        CloseServiceHandle(hSCM);
+
+        return true;
+    }
+
+    // ---------------- SERVICE MAIN LOGIC ----------------
+
+    void RunMainLogic()
+    {
+        g_StopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+        HttpClient& httpClient = HttpClient::GetInstance();
+
+        std::thread tTray(ThreadSafeDeskTray);
+        std::thread tApp(ThreadMonitorApp);
+        std::thread tPower(ThreadMonitorPower);
+        std::thread tProcess(ThreadMonitorProcess);
+        std::thread tCommand(ThreadCommandHandle);
+        std::thread tBrowser(ThreadBrowserHistory);
+        std::thread tPolicies(ThreadPolicies);
+
+        InitGDIPlus();
+        InitSelfProtectDriver();
+
+        while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0)
+        {
+            PowerUsageDB& powerDB = PowerUsageDB::GetInstance();
+            json powerData = powerDB.query_all();
+            if (!powerData.is_null())
+            {
+                if (httpClient.PostPowerUsage(powerData))
+                    powerDB.update_status(powerData);
+            }
+
+            ProcessUsageDB& procDB = ProcessUsageDB::GetInstance();
+            json procData = procDB.query_all();
+            if (!procData.is_null())
+            {
+                if (httpClient.PostProcessUsage(procData))
+                    procDB.update_status(procData);
+            }
+
+            for (int i = 0; i < 60; ++i)
+            {
+                if (WaitForSingleObject(g_StopEvent, 0) == WAIT_OBJECT_0)
+                    break;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+
+        if (g_StopEvent)
+            SetEvent(g_StopEvent);
+
+        if (tTray.joinable()) tTray.join();
+        if (tApp.joinable()) tApp.join();
+        if (tPower.joinable()) tPower.join();
+        if (tProcess.joinable()) tProcess.join();
+        if (tCommand.joinable()) tCommand.join();
+        if (tBrowser.joinable()) tBrowser.join();
+        if (tPolicies.joinable()) tPolicies.join();
+
+        if (g_StopEvent)
+        {
+            CloseHandle(g_StopEvent);
+            g_StopEvent = NULL;
+        }
+    }
+
+    // ---------------- SERVICE MAIN ----------------
+
+    void WINAPI ServiceMain(DWORD argc, LPSTR* argv)
+    {
+        LogToFile("Service initializing...");
+
         g_ServiceStatusHandle = RegisterServiceCtrlHandlerA(SERVICE_NAME, ServiceCtrlHandler);
-        if (!g_ServiceStatusHandle) {
-            LogToFile("Failed to register service control handler: " + std::to_string(GetLastError()));
+        if (!g_ServiceStatusHandle)
+        {
+            LogToFile("Failed to register service handler.");
             return;
         }
-        LogToFile("Service is init...");
-        // Setup service status
+
         g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
         g_ServiceStatus.dwCurrentState = SERVICE_START_PENDING;
-        g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_SHUTDOWN;
+        g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_SHUTDOWN | SERVICE_ACCEPT_STOP;
         g_ServiceStatus.dwWin32ExitCode = 0;
-        g_ServiceStatus.dwServiceSpecificExitCode = 0;
-        g_ServiceStatus.dwCheckPoint = 0;
         g_ServiceStatus.dwWaitHint = 5000;
 
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
 
-        // Set to running status
         g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
-        LogToFile("Service is start...");
 
-        // Run main logic
+        LogToFile("Service started.");
+
         RunMainLogic();
+
+        g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
+        g_ServiceStatus.dwWin32ExitCode = 0;
+        SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
+
+        LogToFile("Service stopped cleanly.");
     }
 
-    // Class ServiceManager to handle service creation
+    // ---------------- SERVICE CREATION ----------------
+
     class ServiceManager {
     public:
-        static bool CreateService() {
-            SC_HANDLE schSCManager = OpenSCManagerA(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-            if (schSCManager == NULL) {
-                LogToFile("Failed to open Service Control Manager: " + std::to_string(GetLastError()));
+        static bool CreateService()
+        {
+            SC_HANDLE scm = OpenSCManagerA(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+            if (!scm)
+            {
+                LogToFile("Failed to open SCM.");
                 return false;
             }
 
-            // Check if the service already exists
-            SC_HANDLE schServiceCheck = OpenServiceA(schSCManager, SERVICE_NAME, SERVICE_QUERY_STATUS);
-            if (schServiceCheck != NULL) {
+            SC_HANDLE existing = OpenServiceA(scm, SERVICE_NAME, SERVICE_QUERY_STATUS);
+            if (existing)
+            {
                 LogToFile("Service already exists.");
-                CloseServiceHandle(schServiceCheck);
-                CloseServiceHandle(schSCManager);
-                return true; // Service already exists, no need to create again
+                CloseServiceHandle(existing);
+                CloseServiceHandle(scm);
+                return true;
             }
 
-            // Get the path of the current executable
-            char szPath[MAX_PATH];
-            if (GetModuleFileNameA(NULL, szPath, MAX_PATH) == 0) {
-                LogToFile("Failed to get module file name: " + std::to_string(GetLastError()));
-                CloseServiceHandle(schSCManager);
+            char path[MAX_PATH];
+            if (!GetModuleFileNameA(NULL, path, MAX_PATH))
+            {
+                LogToFile("Failed to get module path.");
+                CloseServiceHandle(scm);
                 return false;
             }
 
-            // Add the --service argument to the path
-            std::string servicePath = std::string(szPath) + " --service";
-            if (servicePath.length() >= MAX_PATH) {
-                LogToFile("Service path too long after adding --service.");
-                CloseServiceHandle(schSCManager);
-                return false;
-            }
+            std::string svcPath = std::string(path) + " --service";
 
-            // Create the service
-            SC_HANDLE schService = CreateServiceA(
-                schSCManager,
+            SC_HANDLE svc = CreateServiceA(
+                scm,
                 SERVICE_NAME,
                 "SafeDesk Monitoring Service",
                 SERVICE_ALL_ACCESS,
                 SERVICE_WIN32_OWN_PROCESS,
                 SERVICE_AUTO_START,
                 SERVICE_ERROR_NORMAL,
-                servicePath.c_str(),
+                svcPath.c_str(),
                 NULL, NULL, NULL, NULL, NULL
             );
 
-            if (schService == NULL) {
-                DWORD error = GetLastError();
-                LogToFile("Failed to create service: " + std::to_string(error));
-                CloseServiceHandle(schSCManager);
+            if (!svc)
+            {
+                LogToFile("Failed to create service.");
+                CloseServiceHandle(scm);
                 return false;
             }
 
-            SetRecoveryOptions(schService);
+            SERVICE_DESCRIPTIONA desc = { (LPSTR)"Safedesk monitoring service for tracking system usage." };
+            ChangeServiceConfig2A(svc, SERVICE_CONFIG_DESCRIPTION, &desc);
 
-            // Set service description
-            SERVICE_DESCRIPTIONA description = { (LPSTR)"Safedesk monitoring service for tracking system usage." };
-            ChangeServiceConfig2A(schService, SERVICE_CONFIG_DESCRIPTION, &description);
+            StartService(svc, 0, NULL);
 
-            LogToFile("Service created successfully with --service argument.");
+            CloseServiceHandle(svc);
+            CloseServiceHandle(scm);
 
-            // Start service
-			StartService(schService, 0, NULL);
-
-            CloseServiceHandle(schService);
-            CloseServiceHandle(schSCManager);
+            LogToFile("Service created and started.");
             return true;
         }
     };
-}
 
-int main(int argc, char* argv[]) {
-    // Check if running as a service
-    if (argc > 1 && std::string(argv[1]) == "--service") {
+} // namespace service
+
+// ---------------- MAIN ENTRY ----------------
+
+int main(int argc, char* argv[])
+{
+    if (argc > 1 && std::string(argv[1]) == "--service")
+    {
         g_RunningAsService = true;
-        SERVICE_TABLE_ENTRYA serviceTable[] = {
+
+        SERVICE_TABLE_ENTRYA table[] = {
             { (LPSTR)SERVICE_NAME, service::ServiceMain },
             { NULL, NULL }
         };
 
-        if (!StartServiceCtrlDispatcherA(serviceTable)) {
-            LogToFile("Failed to start service dispatcher: " + std::to_string(GetLastError()));
+        if (!StartServiceCtrlDispatcherA(table))
+        {
+            LogToFile("Failed to start service dispatcher.");
             return 1;
         }
     }
-    else if (argc > 1) {
-		std::string installer_token = argv[1];
-		std::cout << "Installer token: " << installer_token << std::endl;
-		HttpClient& httpClient = HttpClient::GetInstance();
-        json res = httpClient.SendRequestRegister(installer_token.c_str());
+    else if (argc > 1)
+    {
+        std::string token = argv[1];
 
-        if (res.is_null()) {
-            std::cerr << "Registration failed." << std::endl;
-			return 1;
+        HttpClient& httpClient = HttpClient::GetInstance();
+        json res = httpClient.SendRequestRegister(token.c_str());
+        if (res.is_null())
+        {
+            std::cerr << "Registration failed.\n";
+            return 1;
         }
-		std::cout << "Registration successful: " << res.dump() << std::endl;
-
-		std::string agentId = res["agentId"];
-		std::string agentToken = res["agentToken"];
 
         TokenDB& tokenDB = TokenDB::GetInstance();
-		tokenDB.addToken(agentToken, agentId);
+        tokenDB.addToken(res["agentToken"], res["agentId"]);
 
-        if (RunInstaller()) {
-            
+        RunInstaller();
+        return 0;
+    }
+    else
+    {
+        service::ServiceManager::CreateService();
+    }
+
+    return 0;
+}
+
+// ---------------- THREAD WORKERS ----------------
+
+void ThreadMonitorApp()
+{
+    AppMonitor::GetInstance().MonitorApp();
+}
+
+void ThreadMonitorPower()
+{
+    PowerMonitor::GetInstance().MonitorPowerUsage();
+}
+
+void ThreadMonitorProcess()
+{
+    ProcessMonitor::GetInstance().MonitorProcessUsage();
+}
+
+void ThreadSafeDeskTray()
+{
+    SafeDeskTray::GetInstance().InitPipeServer();
+}
+
+void ThreadPolicies()
+{
+    Policies::GetInstance().policiesMonitor();
+}
+
+void ThreadBrowserHistory()
+{
+    BrowserHistory::GetInstance().MonitorBrowserHistory();
+}
+
+void ThreadCommandHandle()
+{
+    HttpClient& httpClient = HttpClient::GetInstance();
+
+    while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0)
+    {
+        json commands = httpClient.GetCommandsPolling();
+        json list = commands["commands"];
+
+        for (const auto& cmd : list)
+        {
+            std::string type = cmd["command_type"];
+            int id = cmd["id"];
+
+            if (type == "capturescreen")
+            {
+                SafeDeskTray& tray = SafeDeskTray::GetInstance();
+                std::wstring msg = std::wstring(CAPTURESCREEN_LABEL) + L"|" + std::to_wstring(id);
+                tray.SendMessageToTray(msg);
+            }
+            else if (type == "self_uninstall")
+            {
+                if (service::DisableServiceAutoRestart(SERVICE_NAME))
+                {
+                    if (httpClient.SendRequestUninstall()) {
+                        SelfDelete();
+                        StopServiceClean();
+                        return;
+                    }
+                }
+                else
+                {
+                    LogToFile("Disable restart failed. Abort uninstall.");
+                }
+            }
         }
 
-		return 0;
+        if (WaitForSingleObject(g_StopEvent, 5000) == WAIT_OBJECT_0)
+            break;
     }
-    else {
-        service::ServiceManager::CreateService();
-
-        //RunMainLogic();
-    }
-
-	return 0;
-}
-
-void ThreadMonitorApp() {
-	AppMonitor& appMonitor = AppMonitor::GetInstance();
-	appMonitor.MonitorApp();
-}
-
-void ThreadMonitorPower() {
-	PowerMonitor& powerMonitor = PowerMonitor::GetInstance();
-	powerMonitor.MonitorPowerUsage();
-}
-
-void ThreadMonitorProcess() {
-	ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
-	processMonitor.MonitorProcessUsage();
-}
-
-void ThreadSafeDeskTray() {
-    SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
-    safeDeskTray.InitPipeServer();
-}
-
-void ThreadPolicies() {
-	Policies& policies = Policies::GetInstance();
-	policies.policiesMonitor();
-}
-
-void ThreadBrowserHistory() {
-	BrowserHistory& browserHistory = BrowserHistory::GetInstance();
-	browserHistory.MonitorBrowserHistory();
-}
-
-void ThreadCommandHandle() {
-	HttpClient& httpClient = HttpClient::GetInstance();
-    while (1) {
-        json commands = httpClient.GetCommandsPolling();
-		DEBUG_LOG("Received commands: %s", commands.dump().c_str());
-		json cmd_array = commands["commands"];
-		for (const auto& cmd : cmd_array) {
-			std::string command_type = cmd["command_type"];
-            int command_id = cmd["id"];
-            if (command_set.count(command_id)) {
-				continue; // Skip already processed command
-            }
-
-			DEBUG_LOG("Received command: %s ", command_type.c_str());
-			if (command_type == "capturescreen") {
-				const char* tmpFilePath = "screenshot_tmp.jpg";
-				SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
-                std::wstring message = std::wstring(CAPTURESCREEN_LABEL) + L"|" + std::to_wstring(command_id) + L"\0";
-                if (safeDeskTray.SendMessageToTray(message)) {
-                    command_set.insert(command_id);
-                }
-			}
-			else if (command_type == "self_uninstall") {
-				//httpClient.SendRequestUninstall();
-                SelfDelete();
-			}
-
-			/*else if (command_type == "uninstall_app") {
-				std::string quietUninstallString = cmd["quiet_uninstall_string"];
-				LogToFile("Executing uninstall command: " + quietUninstallString);
-				AppMonitor& appMonitor = AppMonitor::GetInstance();
-				appMonitor.ExecuteUninstall(quietUninstallString);
-			}*/
-			// Handle other command types as needed
-		}
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-	}
 }

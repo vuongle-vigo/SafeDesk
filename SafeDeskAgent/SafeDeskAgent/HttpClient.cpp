@@ -328,10 +328,7 @@ bool HttpClient::SendRequestUpdateOnline() {
 bool HttpClient::SendRequestUninstall() {
 	Config& cfg = Config::GetInstance();
 	Client m_client(cfg.GetHost(), cfg.GetPort());
-	Headers headers = {
-		{ "Authorization", "Bearer "  }
-	};
-	auto response = m_client.Post("/api/kid/uninstall", m_headers, { "" }, "application/json");
+	auto response = m_client.Post(API_UNINSTALL_POST, m_headers, { "" }, "application/json");
 	if (response && response->status == 200) {
 		std::cout << "Response: " << response->body << std::endl;
 	}

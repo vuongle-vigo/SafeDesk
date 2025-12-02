@@ -13,6 +13,7 @@ using namespace httplib;
 #define API_PROCESS_USAGE_POST		"/api/agents/process-usage"
 #define API_COMMANDS_POLLING		"/api/agents/commands-polling"
 #define API_SCREENSHOT_POST			"/api/agents/capture-screen"
+#define API_UNINSTALL_POST			"/api/agents/uninstall"
 #define API_APP_POLICIES_GET		"/api/agents/app-policies"
 #define API_DAILY_POLICIES_GET		"/api/agents/daily-policies"
 #define API_BROWSER_HISTORY_POST	"/api/agents/browser-history"

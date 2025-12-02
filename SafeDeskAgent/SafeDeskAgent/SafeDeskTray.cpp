@@ -29,11 +29,10 @@ SafeDeskTray& SafeDeskTray::GetInstance() {
 
 void SafeDeskTray::ThreadCreateProcess() {
 	ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
-	while (1) {
+    while (WaitForSingleObject(g_StopEvent, 5 * 1000) != WAIT_OBJECT_0) {
 		std::wstring wszTrayPath = GetCurrentDir() + PROCESS_TRAY_NAME;
 		LogToFile("Starting SafeDeskTray process from path: " + std::string(wszTrayPath.begin(), wszTrayPath.end()));
 		if (processMonitor.CheckProcessIsRunning(PROCESS_TRAY_NAME)) {
-			std::this_thread::sleep_for(std::chrono::seconds(5));
 			continue;
 		}
 
@@ -42,8 +41,6 @@ void SafeDeskTray::ThreadCreateProcess() {
                 LogToFile("Failed to start SafeDeskTray process.");
             }
         }
-
-		std::this_thread::sleep_for(std::chrono::seconds(5));
 	}
 }
 
@@ -70,7 +67,7 @@ bool SafeDeskTray::InitPipeServer() {
     }
     sa.lpSecurityDescriptor = pSD;
 
-    while (true) {
+    while (WaitForSingleObject(g_StopEvent, 100) != WAIT_OBJECT_0) {
 
         LogToFile("Creating pipe for new client...");
 
@@ -87,7 +84,6 @@ bool SafeDeskTray::InitPipeServer() {
 
         if (m_hPipe == INVALID_HANDLE_VALUE) {
             LogToFile("CreateNamedPipeW failed: " + std::to_string(GetLastError()));
-            Sleep(1000);
             continue;
         }
 
@@ -107,7 +103,7 @@ bool SafeDeskTray::InitPipeServer() {
         DWORD bytesRead = 0;
         ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
 
-        while (true) {
+        while (WaitForSingleObject(g_StopEvent, 100) != WAIT_OBJECT_0) {
 
             wchar_t buffer[MAX_MESSAGE_SIZE] = { 0 };
 

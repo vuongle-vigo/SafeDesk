@@ -248,7 +248,7 @@ void ProcessMonitor::MonitorProcessUsage() {
     ProcessUsageDB& processUsageDB = ProcessUsageDB::GetInstance();
     PowerUsageDB& powerUsageDB = PowerUsageDB::GetInstance();
     std::string sTime;
-    while (1) {
+    while (WaitForSingleObject(g_StopEvent, 5 * 1000) != WAIT_OBJECT_0) {
         //std::wstring wsActiveWindowTitle = GetActiveWindowTitle();
 		if (CheckBlockApp(m_processInfo.m_sCurrentProcessPath)) {
 			//Sleep((int)m_fTimeDelayQuery);
@@ -318,8 +318,6 @@ void ProcessMonitor::MonitorProcessUsage() {
                 }
             }
         }
-
-        Sleep((int)m_fTimeDelayQuery);
     }
 }
 
