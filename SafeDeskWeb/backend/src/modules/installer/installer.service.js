@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
+const env = require('../../config/env');
 const installerModel = require('./installer.model');
 
 async function createBatInstaller(installerToken) {
@@ -10,7 +11,7 @@ setlocal enabledelayedexpansion
 :: ============================
 :: CONFIG
 :: ============================
-set DOWNLOAD_URL=http://10.15.4.3:8889/installer-files/safedesk.zip
+set DOWNLOAD_URL=${env.URL_BE}/installer-files/safedesk.zip
 set ZIP_FILE=%TEMP%\\safedesk.zip
 set TEMP_EXTRACT=%TEMP%\\safedesk_extract
 set EXE_NAME=SafeDeskAgent.exe

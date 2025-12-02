@@ -19,7 +19,7 @@ const env = {
     DB_USER: requireEnv("DB_USER"),
     DB_PASSWORD: requireEnv("DB_PASSWORD"),
     DB_NAME: requireEnv("DB_NAME"),
-
+    URL_BE: requireEnv("URL_BE"),
     // AUTH
     JWT_SECRET: requireEnv("JWT_SECRET_KEY"),
 };
