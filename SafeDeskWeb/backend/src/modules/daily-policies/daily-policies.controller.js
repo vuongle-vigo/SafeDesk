@@ -35,13 +35,12 @@ async function updateDailyPolicies(req, res) {
     try {
         const agentId = req.params.agentId;
         const policyId = req.params.policyId;
-        const { enabled, allowed_hours } = req.body;
-        // console.log('body', req.body);
+        const { enabled, allowed_hours, limit_daily_minutes } = req.body;
         if (!agentId || !policyId) {
             return res.status(400).json({ error: 'Agent ID and Policy ID are required' });
         }
 
-        const dailyPolicies = await dailyPoliciesService.updateDailyPolicies(agentId, policyId, enabled, allowed_hours);
+        const dailyPolicies = await dailyPoliciesService.updateDailyPolicies(agentId, policyId, enabled, allowed_hours, limit_daily_minutes);
         return res.json({
             message: 'Daily policy updated successfully',
             dailyPolicies: dailyPolicies

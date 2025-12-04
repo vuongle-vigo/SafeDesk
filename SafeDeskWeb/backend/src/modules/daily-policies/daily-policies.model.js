@@ -10,11 +10,11 @@ async function getDailyPoliciesByAgentId(agentId) {
     return result;
 }
 
-async function updateDailyPolicies(agentId, policyId, enabled, allowed_hours) {
+async function updateDailyPolicies(agentId, policyId, enabled, allowed_hours, limit_daily_minutes) {
     const sql = `UPDATE daily_usage_policies 
-                 SET enabled = ?, allowed_hours = ?, updated_at = NOW()
+                 SET enabled = ?, allowed_hours = ?, limit_daily_minutes = ?, updated_at = NOW()
                  WHERE agent_id = ? AND id = ?`;
-    const params = [enabled, JSON.stringify(allowed_hours), agentId, policyId];
+    const params = [enabled, JSON.stringify(allowed_hours), limit_daily_minutes, agentId, policyId];
     const result = await query(sql, params);
     return result;
 }

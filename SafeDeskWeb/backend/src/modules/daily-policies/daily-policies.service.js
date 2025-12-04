@@ -10,8 +10,8 @@ async function getDailyPoliciesByAgentId(agentId) {
     return dailyPolicies;
 }
 
-async function updateDailyPolicies(agentId, policyId, enabled, allowed_hours) {
-    const result = await dailyPoliciesModel.updateDailyPolicies(agentId, policyId, enabled, allowed_hours);
+async function updateDailyPolicies(agentId, policyId, enabled, allowed_hours, limit_daily_minutes) {
+    const result = await dailyPoliciesModel.updateDailyPolicies(agentId, policyId, enabled, allowed_hours, limit_daily_minutes);
     return result;
 }
 

@@ -26,6 +26,7 @@ module.exports = function routesLoader(app) {
     app.use('/api/agents', dailyPoliciesRoutes);
     app.use('/api/agents', browserHistoryRoutes);
     
+    
     app.get('/', (req, res) => {
         res.json({ message: 'Welcome to SafeDesk API' });
     });

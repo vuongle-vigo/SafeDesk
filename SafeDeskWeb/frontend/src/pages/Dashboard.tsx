@@ -24,11 +24,17 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
 
   const [apiUsage, setApiUsage] = useState<any[] | null>(null);
   const [topApps, setTopApps] = useState<any[]>([]);
+  // top apps for today (separate API call using today's date)
+  const [topAppsToday, setTopAppsToday] = useState<any[] | null>(null);
   const [agentStatus, setAgentStatus] = useState<any | null>(null);
 
   // NEW: top sites state
   const [topSites, setTopSites] = useState<any[] | null>(null);
   const [topSitesError, setTopSitesError] = useState<string | null>(null);
+  // daily limit for today (minutes)
+  const [dailyLimitMinutes, setDailyLimitMinutes] = useState<number | null>(null);
+  // whether today's policy is enabled (false => no limit set for today)
+  const [dailyLimitEnabled, setDailyLimitEnabled] = useState<boolean | null>(null);
 
   function formatDate(d: Date) {
     const y = d.getFullYear();
@@ -98,6 +104,44 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     loadTopApps();
     return () => { mounted = false; };
   }, [selectedDeviceId]); // no longer depends on dateRange; uses today's date
+
+  // Load top applications for today (separate from weekly topApps)
+  useEffect(() => {
+    let mounted = true;
+    async function loadTopAppsToday() {
+      setTopAppsToday(null);
+      try {
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dateStr = formatDate(today);
+        // call same endpoint but with start=end=today to get today's top apps
+        const res = await mockAPI.getAgentTopApplications(agentId, dateStr, dateStr, token);
+        if (!mounted) return;
+        if (res.success && Array.isArray(res.apps)) {
+          const apps = res.apps.map((a: any) => ({
+            appId: a.app_id ?? a.id ?? a.appId,
+            name: a.app_name ?? a.name ?? 'Unknown',
+            minutes: Math.round(Number(a.total_usage ?? a.usage_minutes ?? a.minutes ?? 0)),
+          }));
+          const maxMinutes = apps.length ? Math.max(...apps.map((x: any) => x.minutes || 0), 0) : 0;
+          const appsWithMeta = apps.map((a: any) => ({
+            ...a,
+            percentage: maxMinutes ? (a.minutes / maxMinutes) * 100 : 0,
+            time: formatMinutesToLabel(a.minutes),
+          }));
+          setTopAppsToday(appsWithMeta);
+        } else {
+          setTopAppsToday([]);
+        }
+      } catch (err) {
+        if (mounted) setTopAppsToday([]);
+      }
+    }
+    loadTopAppsToday();
+    return () => { mounted = false; };
+  }, [selectedDeviceId]);
 
   useEffect(() => {
     let mounted = true;
@@ -171,6 +215,69 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
       }
     }
     loadTopSites();
+    return () => { mounted = false; };
+  }, [selectedDeviceId]);
+
+  // Load daily usage limit (try getDailyPolicies, fallback to localStorage or default 120)
+  useEffect(() => {
+    let mounted = true;
+    async function loadDailyLimit() {
+      try {
+        const agentId = selectedDeviceId || localStorage.getItem('agentId') || 'agent-1';
+        const token = localStorage.getItem('token') || null;
+        const stored = localStorage.getItem('dailyLimitMinutes');
+        const fallback = stored ? parseInt(stored, 10) : 120;
+
+        // Prefer getDailyPolicies API
+        if (typeof mockAPI.getDailyPolicies === 'function') {
+          const res = await mockAPI.getDailyPolicies(agentId, token);
+          if (!mounted) return;
+
+          const policies = Array.isArray(res) ? res : [];
+
+          let matched: any = null;
+
+          // If API returns an array of length 7 ordered Mon..Sun, pick by index:
+          if (Array.isArray(policies) && policies.length === 7) {
+            // JS getDay(): 0=Sun,1=Mon,... => convert to index where 0 => Mon, ... 6 => Sun
+            const idx = (new Date().getDay() + 6) % 7;
+            matched = policies[idx];
+          } else {
+            // fallback: find by day_of_week string (case-insensitive)
+            const weekdayKeys = ['sun','mon','tue','wed','thu','fri','sat'];
+            const todayKey = weekdayKeys[new Date().getDay()];
+            matched = policies.find((p: any) => {
+              const dow = (p.day_of_week ?? p.day ?? '').toString().toLowerCase();
+              return dow === todayKey;
+            });
+          }
+
+          // determine enabled/disabled for today's policy
+          const enabledFlag = matched && typeof matched.enabled !== 'undefined'
+            ? Boolean(Number(matched.enabled))
+            : true; // default: enabled
+          setDailyLimitEnabled(enabledFlag);
+
+          // try to read various possible field names for the limit
+          const rawLimit = matched?.limit_daily_minutes ?? matched?.limitDailyMinutes ?? matched?.limit_minutes ?? matched?.max_minutes ?? matched?.daily_limit ?? matched?.minutes ?? null;
+          const n = rawLimit != null ? Number(rawLimit) : null;
+          const finalLimit = Number.isFinite(n) ? n : fallback;
+          setDailyLimitMinutes(finalLimit);
+          return;
+        }
+
+        // fallback if API not available or failed
+        if (!mounted) return;
+        setDailyLimitEnabled(true);
+        setDailyLimitMinutes(fallback);
+      } catch (e) {
+        if (!mounted) return;
+        const stored = localStorage.getItem('dailyLimitMinutes');
+        setDailyLimitEnabled(true);
+        setDailyLimitMinutes(stored ? parseInt(stored, 10) : 120);
+      }
+    }
+    loadDailyLimit();
     return () => { mounted = false; };
   }, [selectedDeviceId]);
 
@@ -366,9 +473,17 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
     return `${m}m`;
   }
 
+  // compute display for "Ứng dụng dùng nhiều thời gian nhất hôm nay"
+  const topAppTodayDisplay = (() => {
+    if (topAppsToday === null) return 'Đang tải';
+    if (!Array.isArray(topAppsToday) || topAppsToday.length === 0) return 'Không có dữ liệu';
+    const top = topAppsToday[0];
+    return `${top.name} • ${top.time ?? ''}`;
+  })();
+
   const stats = [
     { label: 'Thời gian hôm nay', value: formatMinutesToLabel(totalMinutesToday), icon: Clock, color: 'blue' },
-    { label: 'Ứng dụng đang chạy', value: '12', icon: AppWindow, color: 'green' },
+    { label: 'Ứng dụng dùng nhiều thời gian nhất hôm nay', value: topAppTodayDisplay, icon: AppWindow, color: 'green' },
     { label: 'Hoạt động lần cuối', value: formatLastActivity(agentStatus), icon: Power, color: 'purple' }
   ];
 
@@ -414,9 +529,23 @@ export default function Dashboard({ selectedDeviceId }: DashboardProps) {
         <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
         <div>
           <p className="font-medium text-yellow-900">Cảnh báo giới hạn</p>
-          <p className="text-sm text-yellow-700 mt-1">
-            Bạn đã sử dụng <strong>95/120 phút</strong> cho các game hôm nay. Còn 25 phút.
-          </p>
+          { dailyLimitEnabled === false ? (
+            <p className="text-sm text-yellow-700 mt-1">Không có giới hạn được thiết lập cho ngày hôm nay.</p>
+          ) : (dailyLimitMinutes === null || totalMinutesToday === null) ? (
+            <p className="text-sm text-yellow-700 mt-1">Đang tải giới hạn sử dụng...</p>
+          ) : (() => {
+            const used = totalMinutesToday;
+            const limit = dailyLimitMinutes;
+            const remaining = limit - used;
+            if (remaining <= 0) {
+              return <p className="text-sm text-yellow-700 mt-1">Bạn đã sử dụng <strong>{used}/{limit} phút</strong> — đã vượt quá giới hạn.</p>;
+            }
+            return (
+              <p className="text-sm text-yellow-700 mt-1">
+                Bạn đã sử dụng <strong>{used}/{limit} phút</strong> cho giới hạn hôm nay. Còn {remaining} phút.
+              </p>
+            );
+          })()}
         </div>
       </div>
 

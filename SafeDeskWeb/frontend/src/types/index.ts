@@ -85,6 +85,7 @@ export interface DailySchedule {
   enabled: boolean;
   startTime: string;
   endTime: string;
+  limitMinutes: number;
 }
 
 export interface User {

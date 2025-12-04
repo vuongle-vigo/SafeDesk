@@ -34,7 +34,6 @@ async function getBrowserHistory(agentId, options = {}) {
         limit = 50,
         cursor = null
     } = options;
-    console.log('getBrowserHistory called with options:', options);
     // validate agent exists
     try {
         await agentModel.findAgentById(agentId);

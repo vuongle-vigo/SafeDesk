@@ -59,12 +59,18 @@ export default function Limits({ selectedDeviceId }: LimitProps) {
             if (e) endTime = e;
           }
 
+          // parse limit_daily_minutes (may be null)
+          const limitMinutes = (typeof it.limit_daily_minutes !== 'undefined' && it.limit_daily_minutes !== null)
+            ? Number(it.limit_daily_minutes)
+            : null;
+
           return {
             id,
             dayName,
             enabled,
             startTime,
             endTime
+          , limitMinutes
           } as DailySchedule;
         });
 
@@ -93,12 +99,12 @@ export default function Limits({ selectedDeviceId }: LimitProps) {
     if (!s) return;
     const payload = {
       enabled: s.enabled ? 1 : 0,
-      allowed_hours: [`${s.startTime}-${s.endTime}`]
+      allowed_hours: [`${s.startTime}-${s.endTime}`],
     };
 
     try {
       const token = localStorage.getItem('token') || null;
-      await mockAPI.updateDailyPolicy(selectedDeviceId ?? 'local', scheduleId, payload, token);
+      await mockAPI.updateDailyPolicy(selectedDeviceId, scheduleId, payload, token);
     } catch (err) {
       console.error('Failed to update schedule toggle, rolling back', err);
       setSchedules(prev); // rollback on error
@@ -116,7 +122,9 @@ export default function Limits({ selectedDeviceId }: LimitProps) {
     const payload = {
       // keep enabled as 1/0
       enabled: s.enabled ? 1 : 0,
-      allowed_hours: [`${s.startTime}-${s.endTime}`]
+      allowed_hours: [`${s.startTime}-${s.endTime}`],
+     // include daily limit if present
+      limit_daily_minutes: (typeof s.limitMinutes !== 'undefined' && s.limitMinutes !== null) ? Number(s.limitMinutes) : null
     };
 
     try {
@@ -125,6 +133,30 @@ export default function Limits({ selectedDeviceId }: LimitProps) {
     } catch (err) {
       console.error('Failed to update schedule time, rolling back', err);
       setSchedules(prev); // rollback on error
+    }
+  };
+
+  const handleUpdateScheduleLimit = async (scheduleId: string, value: string) => {
+    // value may be '' => null
+    const parsedVal = value === '' ? null : Number(value);
+    const prev = schedules;
+    const next = schedules.map(s => s.id === scheduleId ? { ...s, limitMinutes: parsedVal } : s);
+    setSchedules(next);
+
+    const s = next.find(x => x.id === scheduleId);
+    if (!s) return;
+    const payload = {
+      enabled: s.enabled ? 1 : 0,
+      allowed_hours: [`${s.startTime}-${s.endTime}`],
+      limit_daily_minutes: (typeof s.limitMinutes !== 'undefined' && s.limitMinutes !== null) ? Number(s.limitMinutes) : null
+    };
+
+    try {
+      const token = localStorage.getItem('token') || null;
+      await mockAPI.updateDailyPolicy(selectedDeviceId, scheduleId, payload, token);
+    } catch (err) {
+      console.error('Failed to update schedule limit, rolling back', err);
+      setSchedules(prev); // rollback
     }
   };
 
@@ -285,6 +317,19 @@ export default function Limits({ selectedDeviceId }: LimitProps) {
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
+            </div>
+
+            {/* Limit input - always editable */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Giới hạn (phút)</label>
+              <input
+                type="number"
+                min={0}
+                value={typeof schedule.limitMinutes === 'number' ? String(schedule.limitMinutes) : ''}
+                onChange={(e) => handleUpdateScheduleLimit(schedule.id, e.target.value)}
+                placeholder="Để trống = không giới hạn"
+                className="w-40 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             {schedule.enabled && (
