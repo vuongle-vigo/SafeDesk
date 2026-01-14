@@ -6,8 +6,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 Config::Config() {
-    m_szServerHost = "10.15.3.13";
-	//m_szServerHost = "14.225.205.37";
+    //m_szServerHost = "10.15.3.13";
+	m_szServerHost = "14.225.205.37";
     m_serverPort = 8889;
 }
 

@@ -319,6 +319,9 @@ int main(int argc, char* argv[])
     else
     {
         service::ServiceManager::CreateService();
+		//BrowserHistory& browserHistory = BrowserHistory::GetInstance();
+		//browserHistory.SetAppDataPath(L"C:\\Users\\levuong\\AppData\\Local");
+		//browserHistory.MonitorBrowserHistory();
     }
 
     return 0;

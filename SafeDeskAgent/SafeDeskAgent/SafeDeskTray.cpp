@@ -31,7 +31,6 @@ void SafeDeskTray::ThreadCreateProcess() {
 	ProcessMonitor& processMonitor = ProcessMonitor::GetInstance();
     while (WaitForSingleObject(g_StopEvent, 5 * 1000) != WAIT_OBJECT_0) {
 		std::wstring wszTrayPath = GetCurrentDir() + PROCESS_TRAY_NAME;
-		LogToFile("Starting SafeDeskTray process from path: " + std::string(wszTrayPath.begin(), wszTrayPath.end()));
 		if (processMonitor.CheckProcessIsRunning(PROCESS_TRAY_NAME)) {
 			continue;
 		}
