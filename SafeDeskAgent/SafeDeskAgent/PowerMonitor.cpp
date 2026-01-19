@@ -36,7 +36,6 @@ void PowerMonitor::MonitorPowerUsage() {
 	Policies& policies = Policies::GetInstance();
     SafeDeskTray& safeDeskTray = SafeDeskTray::GetInstance();
     while (WaitForSingleObject(g_StopEvent, 1 * 60 * 1000) != WAIT_OBJECT_0) {
-        std::cout << "Monitoring power usage..." << std::endl;
         int current_hour = atoi(GetCurrentTimeHour().c_str());
         int current_minute = atoi(GetCurrentTimeMinute().c_str());
         std::ostringstream current_time_ss;
@@ -58,7 +57,7 @@ void PowerMonitor::MonitorPowerUsage() {
         std::string startStr = ranges_str.substr(0, pos);
         std::string endStr = ranges_str.substr(pos + 1);
 
-    
+        // Check range time
         if (current_time_str >= startStr && current_time_str <= endStr) {
             within_allowed_time = true;
             break;

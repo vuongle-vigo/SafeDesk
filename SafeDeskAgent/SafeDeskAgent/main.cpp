@@ -131,8 +131,9 @@ namespace service {
         std::thread tBrowser(ThreadBrowserHistory);
         std::thread tPolicies(ThreadPolicies);
 
+		// Init gdi to capture screen
         InitGDIPlus();
-        InitSelfProtectDriver();
+		InitSelfProtectDriver(); // Init driver for self-protect files
 
         while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0)
         {
@@ -184,6 +185,7 @@ namespace service {
     {
         LogToFile("Service initializing...");
 
+        // Register the control handler so the SCM can send STOP/SHUTDOWN/PAUSE
         g_ServiceStatusHandle = RegisterServiceCtrlHandlerA(SERVICE_NAME, ServiceCtrlHandler);
         if (!g_ServiceStatusHandle)
         {
@@ -191,26 +193,24 @@ namespace service {
             return;
         }
 
-        g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-        g_ServiceStatus.dwCurrentState = SERVICE_START_PENDING;
-        g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_SHUTDOWN | SERVICE_ACCEPT_STOP;
-        g_ServiceStatus.dwWin32ExitCode = 0;
-        g_ServiceStatus.dwWaitHint = 5000;
+		// Initialize service status
+        g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;  // Service runs in its own process.
+        g_ServiceStatus.dwCurrentState = SERVICE_START_PENDING;     // We are still starting up.
+        g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_SHUTDOWN | SERVICE_ACCEPT_STOP; // Controls we can handle.
+        g_ServiceStatus.dwWin32ExitCode = 0;     // 0 = no error.
+        g_ServiceStatus.dwWaitHint = 5000;  		// Service auto restart settings
 
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
 
         g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
 
-        LogToFile("Service started.");
 
         RunMainLogic();
 
         g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
         g_ServiceStatus.dwWin32ExitCode = 0;
         SetServiceStatus(g_ServiceStatusHandle, &g_ServiceStatus);
-
-        LogToFile("Service stopped cleanly.");
     }
 
     // ---------------- SERVICE CREATION ----------------
@@ -285,8 +285,8 @@ int main(int argc, char* argv[])
 {
     if (argc > 1 && std::string(argv[1]) == "--service")
     {
+        // Run service
         g_RunningAsService = true;
-
         SERVICE_TABLE_ENTRYA table[] = {
             { (LPSTR)SERVICE_NAME, service::ServiceMain },
             { NULL, NULL }
@@ -300,8 +300,8 @@ int main(int argc, char* argv[])
     }
     else if (argc > 1)
     {
+		// Register agent with installer token run first time with token arg
         std::string token = argv[1];
-
         HttpClient& httpClient = HttpClient::GetInstance();
         json res = httpClient.SendRequestRegister(token.c_str());
         if (res.is_null())
@@ -318,6 +318,7 @@ int main(int argc, char* argv[])
     }
     else
     {
+		// Create service when run first time without args
         service::ServiceManager::CreateService();
 		//BrowserHistory& browserHistory = BrowserHistory::GetInstance();
 		//browserHistory.SetAppDataPath(L"C:\\Users\\levuong\\AppData\\Local");
@@ -375,6 +376,7 @@ void ThreadCommandHandle()
 
             if (type == "capturescreen")
             {
+                // Send capture screen message to Tray exe
                 SafeDeskTray& tray = SafeDeskTray::GetInstance();
                 std::wstring msg = std::wstring(CAPTURESCREEN_LABEL) + L"|" + std::to_wstring(id);
                 tray.SendMessageToTray(msg);

@@ -14,6 +14,7 @@ AppMonitor& AppMonitor::GetInstance() {
     return instance;
 }
 
+// Query installed applications from Windows Registry
 void AppMonitor::QueryInstalledApplications() {
 	std::vector<AppInfo> vApp;
 	HttpClient& httpClient = HttpClient::GetInstance();
@@ -133,11 +134,12 @@ void AppMonitor::QueryInstalledApplications() {
     }
 }
 
+
 bool AppMonitor::IsEqualAppInfo(const std::vector<AppInfo> app1, const std::vector<AppInfo> app2) {
 	return (app1.size() == app2.size());
 }
 
-
+// Uninstall application by its name
 BOOL AppMonitor::UninstallApplication(const std::wstring& wsAppName) {
     HKEY hKeyEnumApp[2] = { HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER };
     const wchar_t* registryPaths[2] = { L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
@@ -204,6 +206,7 @@ void AppMonitor::DisplayApplications() {
     }
 }
 
+// Add the installed applications to the database
 void AppMonitor::AddApplicationsToDb() {
     AppDB& appDB = AppDB::GetInstance();
     appDB.delete_all();
@@ -215,7 +218,6 @@ void AppMonitor::AddApplicationsToDb() {
 }
 
 // Executes the QuietUninstallString to uninstall an application
-// Returns true if the uninstallation process completes successfully, false otherwise
 bool AppMonitor::ExecuteUninstall(const std::string& quietUninstallString) {
     // Check if the uninstall string is empty
     if (quietUninstallString.empty()) {
@@ -231,18 +233,17 @@ bool AppMonitor::ExecuteUninstall(const std::string& quietUninstallString) {
     PROCESS_INFORMATION pi = {};
 
     // Execute the uninstall command using CreateProcessW
-    // nullptr for lpApplicationName means the command is parsed from lpCommandLine
     BOOL success = CreateProcessW(
-        nullptr,                            // No module name (use command line)
+        nullptr,                            
         (LPWSTR)wQuietUninstallString.c_str(), // Command line (uninstall string)
-        nullptr,                            // Process handle not inheritable
-        nullptr,                            // Thread handle not inheritable
-        FALSE,                              // Set handle inheritance to FALSE
+        nullptr,                       
+        nullptr,                      
+        FALSE,                       
         0,                                  // No creation flags
-        nullptr,                            // Use parent's environment block
-        nullptr,                            // Use parent's starting directory
-        &si,                                // Pointer to STARTUPINFO structure
-        &pi                                 // Pointer to PROCESS_INFORMATION structure
+        nullptr,                      
+        nullptr,                          
+        &si,                           
+        &pi                           
     );
 
     // Check if process creation failed
@@ -265,6 +266,7 @@ bool AppMonitor::ExecuteUninstall(const std::string& quietUninstallString) {
     return exitCode == 0;
 }
 
+// Monitor installed applications and post updates if there are changes
 void AppMonitor::MonitorApp() {
     HttpClient& httpClient = HttpClient::GetInstance();
     AppDB& appDB = AppDB::GetInstance();
@@ -280,6 +282,7 @@ void AppMonitor::MonitorApp() {
     }
 }
 
+// Convert installed app info to json format
 json AppMonitor::GetInstalledAppJson() {
 	json result = json::array();
     for (const auto& app : m_vAppInfo) {

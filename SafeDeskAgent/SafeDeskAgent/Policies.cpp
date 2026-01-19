@@ -11,11 +11,13 @@ Policies& Policies::GetInstance() {
 	return instance;
 }
 
+// Monitor and update policies from server every 5 minutes
 void Policies::policiesMonitor() {
 	HttpClient& httpClient = HttpClient::GetInstance();
 	DailyPoliciesDB& dailyPoliciesDB = DailyPoliciesDB::GetInstance();
 	AppPoliciesDB& appPoliciesDB = AppPoliciesDB::GetInstance();
 	while (WaitForSingleObject(g_StopEvent, 5 * 60 * 1000) != WAIT_OBJECT_0) {
+		// Fetch app policies from server
 		json res = httpClient.GetAppPolicies();
 		if (!res.is_null()) {
 			for (auto& policy : res) {
@@ -38,6 +40,7 @@ void Policies::policiesMonitor() {
 			}
 		}
 
+		// Fetch daily policies from server
 		res = httpClient.GetDailyPolicies();
 		if (res.is_null()) {
 
@@ -59,6 +62,7 @@ void Policies::policiesMonitor() {
 			}
 		}
 
+		// Load policies from local database
 		json appPolicies = appPoliciesDB.getPolicies();
 		m_appPolicies.clear();
 		for (auto& policy : appPolicies) {
@@ -73,6 +77,7 @@ void Policies::policiesMonitor() {
 			m_appPolicies.push_back(appPolicy);
 		}
 
+		// Load daily policies from local database
 		json dailyPolicies = dailyPoliciesDB.getPolicies();
 		for (auto& policy : dailyPolicies) {
 			std::string day = policy["day_of_week"].get<std::string>();
@@ -87,17 +92,19 @@ void Policies::policiesMonitor() {
 	}
 }
 
+// Get today's daily policy
 DailyPolicy Policies::getDailyPolicy() {
 	int today = GetWeekDay();
 	return m_dailyPolicies[today];
 }
 
+// Get app policy by install location
 AppPolicy Policies::getAppPolicy(const std::string& install_location) {
 	for (const auto& appPolicy : m_appPolicies) {
-		LogToFile("Checking App Policy Install Location: " + appPolicy.install_location);
-		LogToFile("Given Install Location: " + install_location);
+		//LogToFile("Checking App Policy Install Location: " + appPolicy.install_location);
+		//LogToFile("Given Install Location: " + install_location);
 		if (appPolicy.install_location == install_location) {
-			LogToFile("Finded App Policy for Install Location: " + install_location);
+			//LogToFile("Finded App Policy for Install Location: " + install_location);
 			return appPolicy;
 		}
 	}

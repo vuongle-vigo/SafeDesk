@@ -1,6 +1,7 @@
 #include "CaptureScreen.h"
 #include <stdio.h>
 
+// Save bitmap to file
 int SaveBitmapToFile(HBITMAP hBitmap, HDC hDC, char* filename) {
     BITMAP bmp;
     GetObject(hBitmap, sizeof(BITMAP), &bmp);
@@ -19,7 +20,7 @@ int SaveBitmapToFile(HBITMAP hBitmap, HDC hDC, char* filename) {
 
     header.infoHeader.biSize = sizeof(BITMAPINFOHEADER);
     header.infoHeader.biWidth = bmp.bmWidth;
-    header.infoHeader.biHeight = -bmp.bmHeight; // ?nh không b? l?t ng??c
+	header.infoHeader.biHeight = -bmp.bmHeight; // Negative for top-down bitmap
     header.infoHeader.biPlanes = 1;
     header.infoHeader.biBitCount = 24;
     header.infoHeader.biCompression = BI_RGB;
@@ -40,6 +41,7 @@ int SaveBitmapToFile(HBITMAP hBitmap, HDC hDC, char* filename) {
     ZeroMemory(&bi, sizeof(bi));
     bi.bmiHeader = header.infoHeader;
 
+	// Get DIBits
     if (!GetDIBits(hDC, hBitmap, 0, bmp.bmHeight, bitmapData, &bi, DIB_RGB_COLORS)) {
         free(bitmapData);
 		printf("GetDIBits failed\n");
@@ -62,14 +64,17 @@ int SaveBitmapToFile(HBITMAP hBitmap, HDC hDC, char* filename) {
     return 1;
 }
 
+// Capture the entire screen and save to file
 int CaptureScreen(const char* fileName) {
     // Get size of the screen
     int screenX = GetSystemMetrics(SM_CXSCREEN);
     int screenY = GetSystemMetrics(SM_CYSCREEN);
 
+	// Create a device context compatible with the screen
     HDC hScreenDC = GetDC(NULL);
     HDC hMemoryDC = CreateCompatibleDC(hScreenDC);
 
+	// Create a bitmap compatible with the screen DC
     HBITMAP hBitmap = CreateCompatibleBitmap(hScreenDC, screenX, screenY);
     HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemoryDC, hBitmap);
 

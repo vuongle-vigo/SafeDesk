@@ -124,7 +124,5 @@ bool PipeConnection::InitPipe()
 		//MessageBoxW(NULL, response, L"Pipe Message", MB_OK | MB_ICONINFORMATION);
 	}
 
-
-
 	CloseHandle(hPipe);
 }
