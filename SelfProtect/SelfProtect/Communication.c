@@ -5,6 +5,7 @@
 
 PFLT_PORT gClientPort = NULL; // Global client port handle
 
+// Init port
 NTSTATUS InitializeCommunicationPort()
 {
     NTSTATUS status;
@@ -23,10 +24,12 @@ NTSTATUS InitializeCommunicationPort()
         return status;
     }
 
+    // Init port name
     RtlInitUnicodeString(&portName, PORT_NAME);
     InitializeObjectAttributes(&oa, &portName, OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, sd);
     status = RtlSetDaclSecurityDescriptor(sd, TRUE, NULL, FALSE);
 
+    // Create port
     if (gFilterHandle) {
         status = FltCreateCommunicationPort(gFilterHandle,
             &gServerPort,
@@ -50,6 +53,7 @@ NTSTATUS InitializeCommunicationPort()
     return status;
 }
 
+// Clean port after use
 VOID CleanupCommunicationPort(PFLT_PORT ServerPort)
 {
     if (ServerPort) {
@@ -62,6 +66,7 @@ VOID CleanupCommunicationPort(PFLT_PORT ServerPort)
     }
 }
 
+// Handle client connection
 NTSTATUS PortConnectNotify(
     PFLT_PORT ClientPort,
     PVOID ServerPortCookie,
@@ -80,6 +85,7 @@ NTSTATUS PortConnectNotify(
     return STATUS_SUCCESS;
 }
 
+// Handle client disconnection
 VOID PortDisconnectNotify(PVOID ConnectionCookie)
 {
     UNREFERENCED_PARAMETER(ConnectionCookie);
@@ -91,6 +97,8 @@ VOID PortDisconnectNotify(PVOID ConnectionCookie)
     }
 }
 
+
+// Handle messages from client
 NTSTATUS PortMessageNotify(
     PVOID PortCookie,
     PVOID InputBuffer,

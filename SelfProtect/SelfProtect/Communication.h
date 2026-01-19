@@ -19,6 +19,7 @@ typedef struct _PROTECT_MESSAGE {
 } PROTECT_MESSAGE, * PPROTECT_MESSAGE;
 
 NTSTATUS InitializeCommunicationPort();
+
 VOID CleanupCommunicationPort(PFLT_PORT ServerPort);
 NTSTATUS PortConnectNotify(
     PFLT_PORT ClientPort,

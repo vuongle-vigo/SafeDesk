@@ -14,6 +14,7 @@ extern PVOID pCBRegistrationHandle;
 
 #define ALLOC_POOL_WITH_TAG(PoolType, Size, Tag) \
 	(PVOID)ExAllocatePoolWithTag((PoolType), (Size), (Tag))
+
 #define FREE_POOL_WITH_TAG(Pointer, Tag) \
 	do {	\
 		if ((Pointer) != NULL) {	\

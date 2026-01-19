@@ -14,10 +14,11 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
     PDEVICE_OBJECT deviceObject = NULL;
     UNICODE_STRING deviceName, symbolicLinkName;
 
+    // Init file list to store path protect
     InitializeProtectedFilesList();
-    InitializeProtectedProcessesList();
+    //InitializeProtectedProcessesList();
 
-    InitializeProcessProtection();
+    //InitializeProcessProtection();
 
     // Initialize device and symbolic link names
     RtlInitUnicodeString(&deviceName, DEVICE_NAME);
