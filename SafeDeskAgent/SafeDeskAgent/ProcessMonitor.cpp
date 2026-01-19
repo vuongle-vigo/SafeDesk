@@ -173,7 +173,6 @@ BOOL ProcessMonitor::StopProcess(const std::wstring sProcessName) {
 }
 
 bool ProcessMonitor::SetInfoProcess(const std::string& sProcessPath, const std::wstring& wsProcessTitle, int processID) {
-    
 	LogToFile("Setting process info: Path=" + sProcessPath +
 		", Title=" + WstringToString(wsProcessTitle) + ", PID=" + std::to_string(processID));
 	std::cout << "Setting process info: Path=" << sProcessPath <<
