@@ -54,4 +54,6 @@ BOOL InitSelfProtectDriver() {
         //std::wcerr << L"Failed to send message to driver for current process path: " << currentPath << std::endl;
         return FALSE;
     }
+
+    return TRUE;
 }

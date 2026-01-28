@@ -122,7 +122,13 @@ NTSTATUS PortMessageNotify(
             case MESSAGE_ADD_PROTECTED_FILE:
                 RtlInitUnicodeString(&FilePath, message->FilePath);
                 status = AddProtectedFile(&FilePath);
-                KdPrint(("[SelfProtect] %s adding file: %ws\n", NT_SUCCESS(status) ? "Succeeded" : "Failed", message->FilePath));
+				if (NT_SUCCESS(status)) {
+					KdPrint(("[SelfProtect] Added file to protection list: %ws\n", message->FilePath));
+				}
+				else {
+					KdPrint(("[SelfProtect] Failed to add file to protection list: %ws\n", message->FilePath));
+				}
+
                 break;
             case MESSAGE_REMOVE_PROTECTED_FILE:
                 RtlInitUnicodeString(&FilePath, message->FilePath);
@@ -132,7 +138,13 @@ NTSTATUS PortMessageNotify(
             case MESSAGE_ADD_PROTECTED_PROCESS:
                 RtlInitUnicodeString(&FilePath, message->FilePath);
                 status = AddProtectedProcess(&FilePath);
-                KdPrint(("[SelfProtect] %s adding process: %ws\n", NT_SUCCESS(status) ? "Succeeded" : "Failed", message->FilePath));
+				if (NT_SUCCESS(status)) {
+					KdPrint(("[SelfProtect] Added process to protection list: %ws\n", message->FilePath));
+				}
+				else {
+					KdPrint(("[SelfProtect] Failed to add process to protection list: %ws\n", message->FilePath));
+				}
+
                 break;
             case MESSAGE_REMOVE_PROTECTED_PROCESS:
                 RtlInitUnicodeString(&FilePath, message->FilePath);

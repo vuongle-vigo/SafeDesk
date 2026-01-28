@@ -33,6 +33,7 @@ void ThreadSafeDeskTray();
 void ThreadBrowserHistory();
 void ThreadCommandHandle();
 void ThreadPolicies();
+void ThreadInitSelfProtectDriver();
 
 // ---------------- SERVICE STOP HANDLER ----------------
 
@@ -264,6 +265,32 @@ namespace service {
                 return false;
             }
 
+            SC_ACTION actions[3] = {
+                { SC_ACTION_RESTART, 60 * 1000 },
+                { SC_ACTION_RESTART, 60 * 1000 },
+                { SC_ACTION_RESTART, 60 * 1000 },
+            };
+
+
+            SERVICE_FAILURE_ACTIONS fa{};
+            fa.dwResetPeriod = 60; // 60s
+            fa.cActions = 3;
+            fa.lpsaActions = actions;
+
+
+            if (!ChangeServiceConfig2A(svc, SERVICE_CONFIG_FAILURE_ACTIONS, &fa)) {
+                LogToFile("Failed to set failure actions.");
+            }
+
+
+            SERVICE_FAILURE_ACTIONS_FLAG flag{};
+            flag.fFailureActionsOnNonCrashFailures = TRUE;
+
+
+            if (!ChangeServiceConfig2A(svc, SERVICE_CONFIG_FAILURE_ACTIONS_FLAG, &flag)) {
+                LogToFile("Failed to set failure actions flag.");
+            }
+
             SERVICE_DESCRIPTIONA desc = { (LPSTR)"Safedesk monitoring service for tracking system usage." };
             ChangeServiceConfig2A(svc, SERVICE_CONFIG_DESCRIPTION, &desc);
 
@@ -364,7 +391,7 @@ void ThreadCommandHandle()
 {
     HttpClient& httpClient = HttpClient::GetInstance();
 
-    while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0)
+    while (WaitForSingleObject(g_StopEvent, 15 * 1000) != WAIT_OBJECT_0)
     {
         json commands = httpClient.GetCommandsPolling();
         json list = commands["commands"];
@@ -400,5 +427,14 @@ void ThreadCommandHandle()
 
         if (WaitForSingleObject(g_StopEvent, 5000) == WAIT_OBJECT_0)
             break;
+    }
+}
+
+void ThreadInitSelfProtectDriver()
+{
+    while (WaitForSingleObject(g_StopEvent, 15 * 1000) != WAIT_OBJECT_0) {
+        if (InitSelfProtectDriver()) {
+			break;
+        }
     }
 }

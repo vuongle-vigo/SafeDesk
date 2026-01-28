@@ -119,68 +119,97 @@ FLT_PREOP_CALLBACK_STATUS PreCreateCallback(
     PVOID* CompletionContext
 )
 {
-    UNREFERENCED_PARAMETER(FltObjects);
     UNREFERENCED_PARAMETER(CompletionContext);
 
     if (!Data || !FltObjects) {
-        return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
-    ULONG createOptions;
-    ULONG createDisposition;
-    ACCESS_MASK desiredAccess;
+    // (Optional) tránh ch?n kernel opens
+    // if (Data->RequestorMode == KernelMode) {
+    //     return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    // }
 
-    //
-    //  24 bits low belong to createOptions
-    //  8 bits high belong to createDisposition
-    //
+    ACCESS_MASK desiredAccess = 0;
+    ULONG createOptions = 0;
+    ULONG createDisposition = 0;
+
+    if (!Data->Iopb ||
+        !Data->Iopb->Parameters.Create.SecurityContext) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+
     desiredAccess = Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
     createOptions = Data->Iopb->Parameters.Create.Options & 0x00FFFFFF;
-    createDisposition = Data->Iopb->Parameters.Create.Options >> 24;
+    createDisposition = (Data->Iopb->Parameters.Create.Options >> 24);
 
-    if (!(
-        (CHECK_FLAG(desiredAccess, DELETE) || CHECK_FLAG(desiredAccess, WRITE_DAC) || CHECK_FLAG(desiredAccess, WRITE_OWNER)) ||
-        (CHECK_FLAG(desiredAccess, GENERIC_ALL) || CHECK_FLAG(desiredAccess, GENERIC_WRITE)) ||
-        (CHECK_FLAG(desiredAccess, FILE_WRITE_DATA) || CHECK_FLAG(desiredAccess, FILE_APPEND_DATA) || CHECK_FLAG(desiredAccess, FILE_WRITE_EA) || CHECK_FLAG(desiredAccess, FILE_WRITE_ATTRIBUTES)) ||
-        (CHECK_FLAG(desiredAccess, MAXIMUM_ALLOWED)) ||
-        (CHECK_FLAG(createOptions, FILE_DELETE_ON_CLOSE)) ||
-        (!CHECK_FLAG(createDisposition, FILE_OPEN_IF) && !CHECK_FLAG(createDisposition, FILE_OPEN))
-        )) {
-        return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    // NOTE: createDisposition là enum, không dùng CHECK_FLAG
+    BOOLEAN interesting =
+        (CHECK_FLAG(desiredAccess, DELETE) ||
+            CHECK_FLAG(desiredAccess, WRITE_DAC) ||
+            CHECK_FLAG(desiredAccess, WRITE_OWNER) ||
+            CHECK_FLAG(desiredAccess, GENERIC_ALL) ||
+            CHECK_FLAG(desiredAccess, GENERIC_WRITE) ||
+            CHECK_FLAG(desiredAccess, FILE_WRITE_DATA) ||
+            CHECK_FLAG(desiredAccess, FILE_APPEND_DATA) ||
+            CHECK_FLAG(desiredAccess, FILE_WRITE_EA) ||
+            CHECK_FLAG(desiredAccess, FILE_WRITE_ATTRIBUTES) ||
+            CHECK_FLAG(desiredAccess, MAXIMUM_ALLOWED) ||
+            CHECK_FLAG(createOptions, FILE_DELETE_ON_CLOSE) ||
+            (createDisposition != FILE_OPEN && createDisposition != FILE_OPEN_IF));
+
+    if (!interesting) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
     PWCHAR filePath = NULL;
+    UNICODE_STRING FilePath = { 0 };
+    UNICODE_STRING ProcessPath = { 0 };
+    NTSTATUS status = STATUS_SUCCESS;
+
     filePath = GetTargetFilePath(Data, FltObjects);
-    if (filePath) {
-        DEBUG("[SelfProtect] PreCreateCallback: Target file path: %ws\n", filePath);
+    if (!filePath) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
-    UNICODE_STRING FilePath;
+    DEBUG("[SelfProtect] PreCreateCallback: Target file path: %ws\n", filePath);
+
     RtlInitUnicodeString(&FilePath, filePath);
-    if (IsProtectedFile(&FilePath)) {
-        UNICODE_STRING ProcessPath = { 0 };
-        NTSTATUS status = GetImagePathFromProcessId(PsGetCurrentProcessId(), &ProcessPath);
-        if (!NT_SUCCESS(status)) {
-            DEBUG("Failed to get process image path for access check.\n");
-            return FLT_PREOP_SUCCESS_WITH_CALLBACK;
-        }
 
-        if (IsProtectedProcess(&ProcessPath)) {
-            DEBUG("Process %wZ is have access to file: %wZ\n", &ProcessPath, &FilePath);
-            return FLT_PREOP_SUCCESS_WITH_CALLBACK;
-        }
-
-        DEBUG("Access to protected file: %wZ\n", &FilePath);
-        Data->IoStatus.Status = STATUS_ACCESS_DENIED;
-        Data->IoStatus.Information = 0;
-        if (filePath) {
-            FREE_POOL_WITH_TAG(filePath, STRG_TAG);
-        }
-
-        return FLT_PREOP_COMPLETE;
+    if (!IsProtectedFile(&FilePath)) {
+        FREE_POOL_WITH_TAG(filePath, STRG_TAG);
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
-    return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    status = GetImagePathFromProcessId(PsGetCurrentProcessId(), &ProcessPath);
+    if (!NT_SUCCESS(status)) {
+        DEBUG("Failed to get process image path for access check.\n");
+        FREE_POOL_WITH_TAG(filePath, STRG_TAG);
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+
+    if (IsProtectedProcess(&ProcessPath)) {
+        DEBUG("Process %wZ is have access to file: %wZ\n", &ProcessPath, &FilePath);
+        // free
+        if (ProcessPath.Buffer) {
+            // free theo tag b?n dùng trong GetImagePathFromProcessId
+            ExFreePool(ProcessPath.Buffer);
+        }
+        FREE_POOL_WITH_TAG(filePath, STRG_TAG);
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+
+    DEBUG("Access to protected file: %wZ\n", &FilePath);
+
+    Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+    Data->IoStatus.Information = 0;
+
+    if (ProcessPath.Buffer) {
+        ExFreePool(ProcessPath.Buffer);
+    }
+    FREE_POOL_WITH_TAG(filePath, STRG_TAG);
+
+    return FLT_PREOP_COMPLETE;
 }
 
 // Post-operation callback 
