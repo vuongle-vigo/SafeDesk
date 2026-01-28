@@ -10,8 +10,8 @@ typedef struct _PROTECTED_FILE {
     UNICODE_STRING FilePath;
 } PROTECTED_FILE, * PPROTECTED_FILE;
 
-LIST_ENTRY ProtectedFilesList;
-KSPIN_LOCK ProtectedFilesLock;
+extern LIST_ENTRY ProtectedFilesList;
+extern KSPIN_LOCK ProtectedFilesLock;
 
 VOID InitializeProtectedFilesList();
 NTSTATUS AddProtectedFile(_In_ PCUNICODE_STRING FilePath);

@@ -2,6 +2,8 @@
 #include <fltkernel.h> // Ensure direct inclusion for minifilter APIs
 #include "ProcessProtect.h"
 
+LIST_ENTRY ProtectedFilesList;
+KSPIN_LOCK ProtectedFilesLock;
 
 VOID InitializeProtectedFilesList()
 {
@@ -18,9 +20,15 @@ NTSTATUS AddProtectedFile(_In_ PCUNICODE_STRING FilePath) {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
+    if (IsProtectedFile(FilePath)) {
+        KdPrint(("[SelfProtect] File is already protected: %wZ\n", FilePath));
+        FREE_POOL_WITH_TAG(protectedFile, STCT_TAG);
+        return STATUS_SUCCESS;
+	}
+
     RtlZeroMemory(protectedFile, sizeof(PROTECTED_FILE));
     protectedFile->FilePath.Length = FilePath->Length;
-    protectedFile->FilePath.MaximumLength = FilePath->MaximumLength;
+    protectedFile->FilePath.MaximumLength = FilePath->Length + sizeof(WCHAR);
     protectedFile->FilePath.Buffer = ALLOC_POOL_WITH_TAG(NonPagedPool, FilePath->MaximumLength, STRG_TAG);
     if (!protectedFile->FilePath.Buffer) {
         KdPrint(("[SelfProtect] Failed to allocate memory for file path\n"));
@@ -48,10 +56,10 @@ VOID RemoveProtectedFile(_In_ PCUNICODE_STRING FilePath) {
         if (RtlEqualUnicodeString(FilePath, &file->FilePath, TRUE)) { // TRUE = case-insensitive
             RemoveEntryList(&file->ListEntry);
             if (file->FilePath.Buffer) {
-                FREE_POOL_WITH_TAG(file->FilePath.Buffer, STRG_TAG);
+                FREE_POOL_WITH_TAG(file, STCT_TAG);
             }
 
-            FREE_POOL_WITH_TAG(file, STRG_TAG);
+            FREE_POOL_WITH_TAG(file, STCT_TAG);
             KdPrint(("[SelfProtect] Removed protected file: %wZ\n", FilePath));
             break;
         }
@@ -94,22 +102,56 @@ VOID CleanupFileProtection(VOID)
 }
 
 // Check if a file is protected
-BOOLEAN IsProtectedFile(_In_ PCUNICODE_STRING FilePath) {
+BOOLEAN IsProtectedFile(_In_ PCUNICODE_STRING FilePath)
+{
     KIRQL irql;
+    BOOLEAN found = FALSE;
+
     KeAcquireSpinLock(&ProtectedFilesLock, &irql);
+
+    KdPrint((
+        "[SelfProtect][IsProtectedFile] Checking path: %wZ (Len=%hu)\n",
+        FilePath,
+        FilePath->Length
+        ));
+
     PLIST_ENTRY entry = ProtectedFilesList.Flink;
-    while (entry != &ProtectedFilesList) {
-        PPROTECTED_FILE file = CONTAINING_RECORD(entry, PROTECTED_FILE, ListEntry);
-        if (RtlEqualUnicodeString(FilePath, &file->FilePath, TRUE)) {
-            KeReleaseSpinLock(&ProtectedFilesLock, irql);
-            return TRUE;
+    ULONG index = 0;
+
+    while (entry != &ProtectedFilesList)
+    {
+        PPROTECTED_FILE file =
+            CONTAINING_RECORD(entry, PROTECTED_FILE, ListEntry);
+
+        KdPrint((
+            "[SelfProtect][IsProtectedFile] [%lu] Compare with protected: %wZ (Len=%hu)\n",
+            index,
+            &file->FilePath,
+            file->FilePath.Length
+            ));
+
+        if (RtlEqualUnicodeString(FilePath, &file->FilePath, TRUE))
+        {
+            KdPrint((
+                "[SelfProtect][IsProtectedFile] MATCHED!\n"
+                ));
+            found = TRUE;
+            break;
         }
 
         entry = entry->Flink;
+        index++;
+    }
+
+    if (!found)
+    {
+        KdPrint((
+            "[SelfProtect][IsProtectedFile] NO MATCH found\n"
+            ));
     }
 
     KeReleaseSpinLock(&ProtectedFilesLock, irql);
-    return FALSE;
+    return found;
 }
 
 // Pre-operation callback
@@ -172,7 +214,7 @@ FLT_PREOP_CALLBACK_STATUS PreCreateCallback(
         return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
-    DEBUG("[SelfProtect] PreCreateCallback: Target file path: %ws\n", filePath);
+    //DEBUG("[SelfProtect] PreCreateCallback: Target file path: %ws\n", filePath);
 
     RtlInitUnicodeString(&FilePath, filePath);
 

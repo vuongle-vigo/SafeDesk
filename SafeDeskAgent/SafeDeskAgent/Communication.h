@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <fltUser.h>
 
-#define SQLITE_DB L"sqlite_db\\safekids.db"
+#define SQLITE_DB L"sqlite_db\\safedesk.db"
 
 #define PORT_NAME L"\\SelfProtectCommPort"
 #define MAX_MESSAGE_SIZE 512
