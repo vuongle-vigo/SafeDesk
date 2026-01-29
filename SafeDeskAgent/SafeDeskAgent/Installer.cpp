@@ -8,9 +8,10 @@
 
 bool DriverInstaller() {
 	BOOL rebootRequired = FALSE;
+	std::wstring newDriverInfPath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_INF;
 	BOOL ok = DiInstallDriverW(
 		NULL,               // hwndParent
-		(PWSTR)DRIVER_INF,     // Full path to INF
+		(PWSTR)newDriverInfPath.c_str(),     // Full path to INF
 		DIIRFLAG_FORCE_INF, // force use this INF
 		&rebootRequired
 	);
