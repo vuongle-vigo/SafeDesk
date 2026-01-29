@@ -6,21 +6,53 @@
 #include <newdev.h>      // DiInstallDriverW
 #pragma comment(lib, "newdev.lib")
 
+bool IsServiceInstalled(const wchar_t* serviceName)
+{
+	bool exists = FALSE;
+
+	SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+	if (!hSCM)
+		return FALSE;
+
+	SC_HANDLE hSvc = OpenServiceW(
+		hSCM,
+		serviceName,
+		SERVICE_QUERY_STATUS
+	);
+
+	if (hSvc) {
+		exists = TRUE;
+		CloseServiceHandle(hSvc);
+	}
+
+	CloseServiceHandle(hSCM);
+	return exists;
+}
+
 bool DriverInstaller() {
 	BOOL rebootRequired = FALSE;
 	std::wstring newDriverInfPath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_INF;
-	BOOL ok = DiInstallDriverW(
-		NULL,               // hwndParent
-		(PWSTR)newDriverInfPath.c_str(),     // Full path to INF
-		DIIRFLAG_FORCE_INF, // force use this INF
-		&rebootRequired
-	);
+	int i = 0;
+	while (IsServiceInstalled(DRIVER_SERVICE_NAME)) {
+		BOOL ok = DiInstallDriverW(
+			NULL,               // hwndParent
+			(PWSTR)newDriverInfPath.c_str(),     // Full path to INF
+			DIIRFLAG_FORCE_INF, // force use this INF
+			&rebootRequired
+		);
 
-	if (!ok) {
-		return false;
+		if (ok) {
+			return true;;
+		}
+
+		if (i++ > 5) {
+			break;
+		}
+
+		Sleep(5000);
 	}
 
-	return true;
+	return false;
 }
 
 bool CheckFileInstaller() {

@@ -124,6 +124,7 @@ namespace service {
 
         HttpClient& httpClient = HttpClient::GetInstance();
 
+        std::thread tDriver(ThreadInitSelfProtectDriver);
         std::thread tTray(ThreadSafeDeskTray);
         std::thread tApp(ThreadMonitorApp);
         std::thread tPower(ThreadMonitorPower);
@@ -131,7 +132,7 @@ namespace service {
         std::thread tCommand(ThreadCommandHandle);
         std::thread tBrowser(ThreadBrowserHistory);
         std::thread tPolicies(ThreadPolicies);
-
+        
 		// Init gdi to capture screen
         InitGDIPlus();
 		InitSelfProtectDriver(); // Init driver for self-protect files
@@ -165,6 +166,7 @@ namespace service {
         if (g_StopEvent)
             SetEvent(g_StopEvent);
 
+		if (tDriver.joinable()) tDriver.join();
         if (tTray.joinable()) tTray.join();
         if (tApp.joinable()) tApp.join();
         if (tPower.joinable()) tPower.join();
