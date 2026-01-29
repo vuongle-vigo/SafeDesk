@@ -68,41 +68,68 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 }
 
 //// DriverUnload: Cleanup routine
+// global debug helper (optional)
+static __forceinline ULONGLONG NowMs(void)
+{
+    // milliseconds since boot
+    return KeQueryInterruptTime() / 10000ULL;
+}
+
 VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 {
     UNICODE_STRING symbolicLinkName;
 
-    // 1) stop process protection
-    UnregisterProcessProtection();
+    KdPrint(("[SelfProtect][Unload] ENTER t=%llu ms\n", NowMs()));
 
-    // 2) đóng comm port trước (nếu có)
+    KdPrint(("[SelfProtect][Unload] Step 1: UnregisterProcessProtection...\n"));
+    UnregisterProcessProtection();
+    KdPrint(("[SelfProtect][Unload] Step 1: done\n"));
+
+    // ---- communication ports cleanup ----
+    KdPrint(("[SelfProtect][Unload] Step 2: Close communication port(s)... gServerPort=%p\n", gServerPort));
     if (gServerPort) {
         FltCloseCommunicationPort(gServerPort);
         gServerPort = NULL;
     }
-    // nếu có client port global: FltCloseClientPort(gFilterHandle, &gClientPort);
+    // nếu bạn có client port global thì đóng luôn:
+    // if (gClientPort) { FltCloseClientPort(gFilterHandle, &gClientPort); gClientPort=NULL; }
 
-    // 3) unregister minifilter
+    KdPrint(("[SelfProtect][Unload] Step 2: done\n"));
+
+    // ---- minifilter unregister ----
+    KdPrint(("[SelfProtect][Unload] Step 3: FltUnregisterFilter... gFilterHandle=%p\n", gFilterHandle));
     if (gFilterHandle) {
+        // NOTE: hàm này có thể BLOCK nếu còn callback/refs
         FltUnregisterFilter(gFilterHandle);
         gFilterHandle = NULL;
     }
+    KdPrint(("[SelfProtect][Unload] Step 3: done\n"));
 
-    // 4) cleanup các list
+    // ---- cleanup lists ----
+    KdPrint(("[SelfProtect][Unload] Step 4: CleanupFileProtection...\n"));
     CleanupFileProtection();
-    CleanupProcessProtection(); // nếu bạn có hàm tương tự
+    KdPrint(("[SelfProtect][Unload] Step 4: done\n"));
 
-    // 5) delete symbolic link + device
+    // nếu có cleanup process list thì gọi:
+    // KdPrint(("[SelfProtect][Unload] Step 5: CleanupProcessProtection...\n"));
+    // CleanupProcessProtection();
+    // KdPrint(("[SelfProtect][Unload] Step 5: done\n"));
+
+    // ---- delete sym link + device ----
+    KdPrint(("[SelfProtect][Unload] Step 6: IoDeleteSymbolicLink...\n"));
     RtlInitUnicodeString(&symbolicLinkName, SYMBOLIC_LINK_NAME);
     IoDeleteSymbolicLink(&symbolicLinkName);
+    KdPrint(("[SelfProtect][Unload] Step 6: done\n"));
 
+    KdPrint(("[SelfProtect][Unload] Step 7: IoDeleteDevice(s)...\n"));
     while (DriverObject->DeviceObject) {
         PDEVICE_OBJECT next = DriverObject->DeviceObject->NextDevice;
         IoDeleteDevice(DriverObject->DeviceObject);
         DriverObject->DeviceObject = next;
     }
+    KdPrint(("[SelfProtect][Unload] Step 7: done\n"));
 
-    KdPrint(("[SelfProtect] Driver unloaded\n"));
+    KdPrint(("[SelfProtect][Unload] LEAVE t=%llu ms\n", NowMs()));
 }
 
 // HandleCreateClose: Process IRP_MJ_CLOSE

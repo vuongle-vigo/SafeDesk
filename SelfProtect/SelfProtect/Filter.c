@@ -49,10 +49,11 @@ NTSTATUS FilterUnloadCallback(FLT_FILTER_UNLOAD_FLAGS Flags)
 {
     UNREFERENCED_PARAMETER(Flags);
     DEBUG("UNLOAD DRIVER");
-    if (gFilterHandle) {
-        FltUnregisterFilter(gFilterHandle);
-        DEBUG("Unregistered filter");
-        gFilterHandle = NULL;
+    
+    if (gServerPort) {
+        KdPrint(("[SelfProtect][FilterUnloadCallback] Closing server port %p\n", gServerPort));
+        FltCloseCommunicationPort(gServerPort);
+        gServerPort = NULL;
     }
 
     CleanupFileProtection();

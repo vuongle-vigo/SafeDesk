@@ -346,6 +346,7 @@ void SelfDelete(){
 	std::wofstream batFile(curDir + L"self_delete.bat");
 
 	batFile << L"@echo off\n";
+	batFile << L"sc stop SelfProtect\n";
 	batFile << L"timeout /t 5 /nobreak >nul\n";
 
 	batFile << L"sc delete " << StringToWstring(SERVICE_NAME) << L"\n";

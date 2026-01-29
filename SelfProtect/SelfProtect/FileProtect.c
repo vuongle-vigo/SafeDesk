@@ -109,11 +109,11 @@ BOOLEAN IsProtectedFile(_In_ PCUNICODE_STRING FilePath)
 
     KeAcquireSpinLock(&ProtectedFilesLock, &irql);
 
-    KdPrint((
-        "[SelfProtect][IsProtectedFile] Checking path: %wZ (Len=%hu)\n",
-        FilePath,
-        FilePath->Length
-        ));
+    //KdPrint((
+    //    "[SelfProtect][IsProtectedFile] Checking path: %wZ (Len=%hu)\n",
+    //    FilePath,
+    //    FilePath->Length
+    //    ));
 
     PLIST_ENTRY entry = ProtectedFilesList.Flink;
     ULONG index = 0;
@@ -123,12 +123,12 @@ BOOLEAN IsProtectedFile(_In_ PCUNICODE_STRING FilePath)
         PPROTECTED_FILE file =
             CONTAINING_RECORD(entry, PROTECTED_FILE, ListEntry);
 
-        KdPrint((
-            "[SelfProtect][IsProtectedFile] [%lu] Compare with protected: %wZ (Len=%hu)\n",
-            index,
-            &file->FilePath,
-            file->FilePath.Length
-            ));
+        //KdPrint((
+        //    "[SelfProtect][IsProtectedFile] [%lu] Compare with protected: %wZ (Len=%hu)\n",
+        //    index,
+        //    &file->FilePath,
+        //    file->FilePath.Length
+        //    ));
 
         if (RtlEqualUnicodeString(FilePath, &file->FilePath, TRUE))
         {
@@ -145,9 +145,9 @@ BOOLEAN IsProtectedFile(_In_ PCUNICODE_STRING FilePath)
 
     if (!found)
     {
-        KdPrint((
-            "[SelfProtect][IsProtectedFile] NO MATCH found\n"
-            ));
+        //KdPrint((
+        //    "[SelfProtect][IsProtectedFile] NO MATCH found\n"
+        //    ));
     }
 
     KeReleaseSpinLock(&ProtectedFilesLock, irql);
@@ -167,7 +167,6 @@ FLT_PREOP_CALLBACK_STATUS PreCreateCallback(
         return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
-    // (Optional) tránh ch?n kernel opens
     // if (Data->RequestorMode == KernelMode) {
     //     return FLT_PREOP_SUCCESS_NO_CALLBACK;
     // }
