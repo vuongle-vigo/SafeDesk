@@ -33,7 +33,7 @@ bool DriverInstaller() {
 	BOOL rebootRequired = FALSE;
 	std::wstring newDriverInfPath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_INF;
 	int i = 0;
-	while (IsServiceInstalled(DRIVER_SERVICE_NAME)) {
+	while (!IsServiceInstalled(DRIVER_SERVICE_NAME)) {
 		BOOL ok = DiInstallDriverW(
 			NULL,               // hwndParent
 			(PWSTR)newDriverInfPath.c_str(),     // Full path to INF
