@@ -8,6 +8,7 @@
 #define DRIVER_SERVICE_NAME L"SelfProtect"
 
 bool IsServiceInstalled(const wchar_t* serviceName);
+bool StartDriverService(const wchar_t* serviceName);
 bool DriverInstaller();
 bool CheckFileInstaller();
 bool MoveFileToInstallerFolder();

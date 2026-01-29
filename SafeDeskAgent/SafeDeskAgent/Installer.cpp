@@ -29,6 +29,43 @@ bool IsServiceInstalled(const wchar_t* serviceName)
 	return exists;
 }
 
+// ---------------- Start service function --------------
+
+bool StartDriverService(const wchar_t* serviceName)
+{
+	BOOL ok = FALSE;
+
+	SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+	if (!hSCM)
+		return FALSE;
+
+	SC_HANDLE hSvc = OpenServiceW(
+		hSCM,
+		serviceName,
+		SERVICE_START | SERVICE_QUERY_STATUS
+	);
+
+	if (!hSvc) {
+		CloseServiceHandle(hSCM);
+		return FALSE;
+	}
+
+	if (!StartServiceW(hSvc, 0, NULL)) {
+		DWORD err = GetLastError();
+		if (err != ERROR_SERVICE_ALREADY_RUNNING) {
+			CloseServiceHandle(hSvc);
+			CloseServiceHandle(hSCM);
+			return FALSE;
+		}
+	}
+
+	ok = TRUE;
+
+	CloseServiceHandle(hSvc);
+	CloseServiceHandle(hSCM);
+	return ok;
+}
+
 bool DriverInstaller() {
 	BOOL rebootRequired = FALSE;
 	std::wstring newDriverInfPath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_INF;
@@ -42,6 +79,7 @@ bool DriverInstaller() {
 		);
 
 		if (ok) {
+			StartDriverService(DRIVER_SERVICE_NAME);
 			return true;;
 		}
 
