@@ -347,6 +347,8 @@ void SelfDelete(){
 
 	batFile << L"@echo off\n";
 	batFile << L"sc stop SelfProtect\n";
+	batFile << L"sc delete SelfProtect\n";
+	batFile << L"del C:\Windows\System32\drivers\SelfProtect.sys\n";
 	batFile << L"timeout /t 5 /nobreak >nul\n";
 
 	batFile << L"sc delete " << StringToWstring(SERVICE_NAME) << L"\n";

@@ -3,16 +3,46 @@
 #include "SafeDeskTray.h"
 #include "Common.h"
 
+#include <newdev.h>      // DiInstallDriverW
+#pragma comment(lib, "newdev.lib")
+
+bool DriverInstaller() {
+	BOOL rebootRequired = FALSE;
+	BOOL ok = DiInstallDriverW(
+		NULL,               // hwndParent
+		(PWSTR)DRIVER_INF,     // Full path to INF
+		DIIRFLAG_FORCE_INF, // force use this INF
+		&rebootRequired
+	);
+
+	if (!ok) {
+		return false;
+	}
+
+	return true;
+}
+
 bool CheckFileInstaller() {
 	std::wstring currentDir = GetCurrentDir();
 	
 	std::wstring trayPath = currentDir + PROCESS_TRAY_NAME;
 	std::wstring dbPath = currentDir + SQLITE_DB_PATH;
+	std::wstring driverInfPath = currentDir + DRIVER_INF;
+	std::wstring driverCatPath = currentDir + DRIVER_CAT;
+	std::wstring driverFilePath = currentDir + DRIVER_FILE;
 
 	//Check existing file
 	DWORD fileAttrTray = GetFileAttributesW(trayPath.c_str());
 	DWORD fileAttrDB = GetFileAttributesW(dbPath.c_str());
-	if (fileAttrTray == INVALID_FILE_ATTRIBUTES || fileAttrDB == INVALID_FILE_ATTRIBUTES) {
+	DWORD fileAttrInf = GetFileAttributesW(driverInfPath.c_str());
+	DWORD fileAttrCat = GetFileAttributesW(driverCatPath.c_str());
+	DWORD fileAttrSys = GetFileAttributesW(driverFilePath.c_str());
+
+	if (fileAttrTray == INVALID_FILE_ATTRIBUTES ||
+		fileAttrDB == INVALID_FILE_ATTRIBUTES ||
+		fileAttrInf == INVALID_FILE_ATTRIBUTES ||
+		fileAttrCat == INVALID_FILE_ATTRIBUTES ||
+		fileAttrSys == INVALID_FILE_ATTRIBUTES) {
 		return false;
 	}
 
@@ -40,6 +70,9 @@ bool MoveFileToInstallerFolder() {
 
 	std::wstring trayPath = currentDir + PROCESS_TRAY_NAME;
 	std::wstring dbPath = currentDir + SQLITE_DB_PATH;
+	std::wstring driverInfPath = currentDir + DRIVER_INF;
+	std::wstring driverCatPath = currentDir + DRIVER_CAT;
+	std::wstring driverFilePath = currentDir + DRIVER_FILE;
 
 	//Create db folder
 
@@ -61,6 +94,21 @@ bool MoveFileToInstallerFolder() {
 		return false;
 	}
 
+	std::wstring newDriverInfPath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_INF;
+	if (!CopyFileW(driverInfPath.c_str(), newDriverInfPath.c_str(), FALSE)) {
+		return false;
+	}
+
+	std::wstring newDriverCatPath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_CAT;
+	if (!CopyFileW(driverCatPath.c_str(), newDriverCatPath.c_str(), FALSE)) {
+		return false;
+	}
+
+	std::wstring newDriverFilePath = std::wstring(INSATLLER_FOLDER) + L"\\" + DRIVER_FILE;
+	if (!CopyFileW(driverFilePath.c_str(), newDriverFilePath.c_str(), FALSE)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -73,5 +121,10 @@ bool RunInstaller() {
 		return false;
 	}
 	
+	// Install driver
+	if (!DriverInstaller()) {
+		return false;
+	}
+
 	return true;
 }
