@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Driver.h"
 #include "FileProtect.h"
 #include "Communication.h"
@@ -72,11 +72,35 @@ VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 {
     UNICODE_STRING symbolicLinkName;
 
+    // 1) stop process protection
     UnregisterProcessProtection();
 
+    // 2) đóng comm port trước (nếu có)
+    if (gServerPort) {
+        FltCloseCommunicationPort(gServerPort);
+        gServerPort = NULL;
+    }
+    // nếu có client port global: FltCloseClientPort(gFilterHandle, &gClientPort);
+
+    // 3) unregister minifilter
+    if (gFilterHandle) {
+        FltUnregisterFilter(gFilterHandle);
+        gFilterHandle = NULL;
+    }
+
+    // 4) cleanup các list
+    CleanupFileProtection();
+    CleanupProcessProtection(); // nếu bạn có hàm tương tự
+
+    // 5) delete symbolic link + device
     RtlInitUnicodeString(&symbolicLinkName, SYMBOLIC_LINK_NAME);
     IoDeleteSymbolicLink(&symbolicLinkName);
-    IoDeleteDevice(DriverObject->DeviceObject);
+
+    while (DriverObject->DeviceObject) {
+        PDEVICE_OBJECT next = DriverObject->DeviceObject->NextDevice;
+        IoDeleteDevice(DriverObject->DeviceObject);
+        DriverObject->DeviceObject = next;
+    }
 
     KdPrint(("[SelfProtect] Driver unloaded\n"));
 }

@@ -1,6 +1,7 @@
 #include "Communication.h"
 #include "Common.h"
 #include <fltUser.h>
+#include "SafeDeskTray.h"
 
 BOOL SendMessageToDriver(MESSAGE_TYPE Type, LPCWSTR FilePath) {
     HRESULT hr;
@@ -42,12 +43,24 @@ BOOL InitSelfProtectDriver() {
     std::wstring dbPath = wsCurrentDir + SQLITE_DB;
     std::wstring dbPathNt = DosPathToNtPath(dbPath);
     std::wstring currentPath = DosPathToNtPath(GetCurrentProcessPath());
-
+	std::wstring trayPath = DosPathToNtPath(wsCurrentDir + PROCESS_TRAY_NAME);
     if (!SendMessageToDriver(MESSAGE_ADD_PROTECTED_FILE, dbPathNt.c_str())) {
         //std::wcerr << L"Failed to send message to driver for database path: " << dbPath << std::endl;
         LogToFile("Failed to send message to driver for database path: " + WstringToString(dbPathNt));
         return FALSE;
     }
+
+    if (!SendMessageToDriver(MESSAGE_ADD_PROTECTED_FILE, currentPath.c_str())) {
+        //std::wcerr << L"Failed to send message to driver for database path: " << dbPath << std::endl;
+        LogToFile("Failed to send message to driver for database path: " + WstringToString(dbPathNt));
+        return FALSE;
+    }
+
+	if (!SendMessageToDriver(MESSAGE_ADD_PROTECTED_FILE, trayPath.c_str())) {
+		//std::wcerr << L"Failed to send message to driver for tray process path: " << trayPath << std::endl;
+		LogToFile("Failed to send message to driver for tray process path: " + WstringToString(trayPath));
+		return FALSE;
+	}
 
     if (!SendMessageToDriver(MESSAGE_ADD_PROTECTED_PROCESS, currentPath.c_str())) {
         LogToFile("Failed to send message to driver for current process path: " + WstringToString(currentPath));
